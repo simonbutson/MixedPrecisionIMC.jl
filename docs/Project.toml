@@ -1,5 +1,5 @@
-name = "MixedPrecisionIMC"
-uuid = "1aba15cf-43f7-482c-a979-1e374f504042"
+name = "MixedPrecisionIMCDocs"
+uuid = "d2c5e5b2-4f5b-4e5b-8f5b-4e5b4e5b4e5b"
 authors = ["simonbutson <butsons@oregonstate.edu> and contributors"]
 version = "1.0.0-DEV"
 
@@ -8,7 +8,6 @@ julia = "1.6.7"
 
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-MixedPrecisionIMC = "1aba15cf-43f7-482c-a979-1e374f504042"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
