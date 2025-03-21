@@ -2,20 +2,44 @@
 
 Julia software package to solve thermal radiatiative transfer problems using the Implicit Monte Carlo method in a specified float-precision.
 
-## Installation Instructions
+## Installation & Running Instructions
 
+The MixedPrecisionIMC software package can either be downloaded as a package.
 
+Package installation: \
+From a Julia REPL: \
+using Pkg.add("MixedPrecisionIMC")
+
+If the package installation does not work, the software can still be run by downloading the MixedPrecisionIMC GitHub repository.
+
+Now we will review how to run the SuOlson example problem. \
+Running from a Julia REPL using MixedPrecisionIMC package: \
+using MixedPrecisionIMC
+include("src/MixedPrecisionIMC.jl")
+MixedPrecisionIMC.main(\["src/inputs/SuOlson.txt"\])
+
+The test suite can be called with the following command when in Pkg REPL mode:
+test MixedPrecisionIMC
+
+Running from local installation of repository:
+To run the SuOlson example problem using the command line from the root directory looks like: \
+julia src\MixedPrecisionIMC.jl src\inputs\SuOlson.txt
+
+The test suite can be run with the script runtest.jl found in the test folder.
+
+Other example problems can be run by changing the example problem filepath to the appropriate location.
 
 ## Dependencies
 Random \
 Plots
 
+These dependencies can be added using the Julia Pkg tool.
 
 ## Example Problems and Input Deck System
 
 This code uses an input deck system to allow users to configure many different options for simulations.
 
-Example inputs are available in the src\inputs folder. These example files can be copied and have their keywords values modified to run problems.
+Example inputs are available in the src\inputs folder. It is recommended that you try the CrookedPipe, MarshakWave, and SuOlson example problems first before writing your own problems. These example files can be copied and have their keywords values modified to specify new problems to run.
 
 A synopsis of available keywords to be used in input decks is provided here:
 

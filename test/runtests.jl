@@ -46,12 +46,37 @@ end
     @test isa(mesh.nodes, Tuple{Vector{Float64}, Vector{Float64}})  # Check if the value of the key "XMESH" is an array
 end
 
-# @testset "IMC Clean Tests" begin
-#     # Assuming there is a function `clean_data` in the Clean module
-#     test_data = [1, 2, 3, 4, 5]
-#     cleaned_data = MixedPrecisionIMC.Clean.clean_data(test_data)
-
-#     @test !isempty(cleaned_data)  # Check if the cleaned data is not empty
-#     @test length(cleaned_data) == length(test_data)  # Check if the length of cleaned data is the same as the input data
-#     @test all(x -> x in test_data, cleaned_data)  # Check if all elements in cleaned data are from the input data
+# @testset "IMC Main Loop Test" begin
+#     test_input_path = joinpath(@__DIR__, "test_input.txt")
+#     MixedPrecisionIMC.main([test_input_path])
 # end
+
+@testset "IMC Update Tests" begin
+    test_input_path = joinpath(@__DIR__, "test_input.txt")
+    input_data = MixedPrecisionIMC.Input.readInputs(test_input_path)
+    mesh = MixedPrecisionIMC.Mesh.mesh_generation(input_data)
+
+    MixedPrecisionIMC.Constants.set_constants(input_data)
+    import MixedPrecisionIMC.Constants: phys_c, phys_a, alpha
+
+    simvars = MixedPrecisionIMC.SimVars(0.00, 0.01, 0.0, 0.0, 0.0, 1.0, 0.01, 500, 100000, "REFLECTIVE", Float64, "2D")
+
+    MixedPrecisionIMC.Update.update(mesh, simvars)
+    
+    @test !iszero(mesh.beta)  # Check that the value of beta is not zero
+    @test !iszero(mesh.sigma_a[:,:,1])  # Check that the value of sigma_a is not zero
+    @test iszero(mesh.sigma_s[:,:,1])  # Check that the value of sigma_s is zero
+    
+   
+end
+
+@testset "IMC Clean Tests" begin
+    # Create a particles list and a single particle to remove
+    test_data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, -1.0]
+    particles = Vector{Vector{}}()
+    push!(particles, test_data)
+
+    @test !isempty(particles)  # Check that particles list is not empty
+    MixedPrecisionIMC.Clean.clean(particles)
+    @test isempty(particles)  # Check if the cleaned particles list is now empty
+end

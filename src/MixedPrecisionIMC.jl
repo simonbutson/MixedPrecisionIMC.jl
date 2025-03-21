@@ -58,11 +58,11 @@ function main(args)
     None
     """
 
-    if isempty(ARGS)
+    if isempty(args)
         print("No input file provided, exiting... \n") # Exception if no input file is provided
         return
     else
-        input_file = ARGS[1] # Use user provided input file
+        input_file = args[1] # Use user provided input file
     end
 
     print("Input file: ", input_file, "\n")

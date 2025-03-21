@@ -40,7 +40,7 @@ BOTTOMBC = REFLECT
 ##### TIMING #####
 TIMESTEPPING = CONSTANT
 DT = 0.01
-ENDTIME = 1
+ENDTIME = 1.0
 
 ##### Particles #####
 NINPUT = 500
