@@ -46,7 +46,7 @@ using Random
 
     e_body = precision.(energyscale * mesh.fleck .* sigma_a * phys_a * phys_c .* (mesh.dx .* mesh.dy') * dt .* (mesh.temp.^4) * distancescale) 
 
-    print("Body energy ", e_body, "\n")
+    #print("Body energy ", e_body, "\n")
 
     e_radsource = precision.(energyscale * mesh.radsource .* (mesh.dx .* mesh.dy') * dt)
 
