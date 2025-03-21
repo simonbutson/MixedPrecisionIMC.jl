@@ -1,0 +1,51 @@
+NAME = test_calc
+
+##### FLOAT PRECISION #####
+PRECISION = FLOAT64
+
+##### GEOMETRY #####
+GEOMETRY = 2D
+
+##### MESH VARIABLES #####
+MESHTYPE = NONUNIFORM
+XSIZE = 2.0
+YSIZE = 2.0
+XMESHNODES = [0.0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0]
+YMESHNODES = [0.0, 0.5, 1.0, 1.5, 2.0]
+
+##### MATERIAL PROPERTIES #####
+SIGMA_A_REGS = [((0.0, 1.0),(0.0,2.0))]
+SIGMA_A_VALS = [1.0]
+
+RADSOURCE_REGS = []
+RADSOURCE_VALS = [0]
+
+##### BOUNDARY CONDITIONS #####
+LEFTBC = Reflect
+RIGHTBC = Vacuum
+
+##### TIMING #####
+TIMESTEPPING = CONSTANT
+DT = 0.01
+ENDTIME = 10
+
+##### Particles #####
+NS = 500
+
+##### Temperature #####
+T_INIT = 0.013
+T_SURFACE = 0.0
+
+#### CONSTANTS #####
+PHYS_C = 299.70
+PHYS_A = 0.01372016
+ALPHA = 1.0
+
+#### Transport Options ####
+RANDOMWALK = TRUE
+
+#### Scaling ####
+ENERGYSCALE = 100
+
+##### Outputs #####
+PLOTVARS = TEMPERATURE

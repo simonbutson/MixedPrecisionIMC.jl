@@ -8,7 +8,7 @@ makedocs(;
     authors="simonbutson <butsons@oregonstate.edu> and contributors",
     sitename="MixedPrecisionIMC.jl",
     format=Documenter.HTML(;
-        canonical="https://"simonbutson".github.io/MixedPrecisionIMC.jl",
+        canonical="https://simonbutson.github.io/MixedPrecisionIMC.jl",
         edit_link="main",
         assets=String[],
     ),
@@ -18,6 +18,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/"simonbutson"/MixedPrecisionIMC.jl",
+    repo="github.com/simonbutson/MixedPrecisionIMC.jl",
     devbranch="main",
 )

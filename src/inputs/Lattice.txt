@@ -1,0 +1,66 @@
+NAME = Lattice
+
+##### FLOAT PRECISION #####
+PRECISION = FLOAT64
+
+##### RANDOM NUMBERS #####
+SEED = 12345
+
+##### GEOMETRY #####
+GEOMETRY = 2D
+
+##### MESH VARIABLES #####
+MESHTYPE = UNIFORM
+XSIZE = 7.0
+YSIZE = 7.0
+DX = 0.1
+DY = 0.1 
+
+##### MATERIAL PROPERTIES #####
+SIGMA_A_REGS = [((0.0, 7.0),(0.0,7.0)) , ((1.0, 2.0),(1.0,2.0)), ((1.0, 2.0),(5.0,6.0)), ((5.0, 6.0),(1.0,2.0)), ((5.0, 6.0),(5.0,6.0)), ((2.0, 3.0),(2.0,3.0)), ((2.0, 3.0),(4.0,5.0)), ((3.0, 4.0),(1.0,2.0)), ((3.0, 4.0),(5.0,6.0)), ((4.0, 5.0),(2.0,3.0)), ((4.0, 5.0),(4.0,5.0)), ((3.0, 4.0),(3.0,4.0))]
+SIGMA_A_VALS = []
+
+SIGMA_S_REGS = []
+SIGMA_S_VALS = [0]
+
+
+BEE_REGS = [((0.0, 7.0),(0.0,2.0)), ((0.0, 3.0),(0.0,0.5)), ((2.5, 3.0),(0.0,1.5)), ((2.5, 4.5),(1.0,1.5)), ((4.0, 4.5),(0.0,1.5)), ((4.0, 7.0),(0.0,0.5))]
+BEE_VALS = [1.0, 0.001, 0.001, 0.001, 0.001, 0.001]
+
+RADSOURCE_REGS = []
+RADSOURCE_VALS = [0]
+
+##### BOUNDARY CONDITIONS #####
+LEFTBC = VACUUM
+RIGHTBC = VACUUM
+TOPBC =  VACUUM
+BOTTOMBC = REFLECT
+
+##### TIMING #####
+TIMESTEPPING = CONSTANT
+DT = 0.001
+ENDTIME = 5
+
+##### Particles #####
+NS = 1000
+
+##### Temperature #####
+T_INIT = 0.05
+# Bottom, Top, Left, Right Boundaries
+T_SURFACE_VALS = [(0.0),(0.0),(1.0),(0.0)]
+T_SURFACE_REGS = [(7.0),(7.0),(7.0),(7.0)]
+
+#### CONSTANTS #####
+PHYS_C = 299.70
+PHYS_A = 0.01372016
+ALPHA = 1.0
+
+#### Transport Options ####
+RANDOMWALK = FALSE
+
+#### Scaling ####
+ENERGYSCALE = 1
+DISTANCESCALE = 1
+
+##### Outputs #####
+PLOTVARS = HEATMAP
