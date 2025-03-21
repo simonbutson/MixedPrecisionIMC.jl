@@ -50,7 +50,7 @@ mutable struct RWVars
     ptVals
 end
 
-function main()
+function main(args)
     """ Main function to run the Mixed Precision IMC simulation
     Parameters:
     None
@@ -58,7 +58,14 @@ function main()
     None
     """
 
-    input_file = ARGS[1] # Pass the input file as an argument from the command line
+    if isempty(ARGS)
+        print("No input file provided, exiting... \n") # Exception if no input file is provided
+        return
+    else
+        input_file = ARGS[1] # Use user provided input file
+    end
+
+    print("Input file: ", input_file, "\n")
 
     #input_file = raw"src\inputs\SuOlson.txt"
 
@@ -198,7 +205,7 @@ function timestep(timestepping, simvars)
 end
 
 runtime = @elapsed begin
-    main() 
+    main(ARGS) 
 end
 
 print("The simulation took ", runtime, " seconds to run \n")

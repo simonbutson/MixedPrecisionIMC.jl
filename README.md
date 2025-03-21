@@ -2,9 +2,18 @@
 
 Julia software package to solve thermal radiatiative transfer problems using the Implicit Monte Carlo method in a specified float-precision.
 
+## Installation Instructions
+
+
+
+## Dependencies
+Random
+Plots
+
+
 This code uses an input deck system to allow users to configure many different options for simulations.
 
-Example inputs are available in the src\inputs folder.
+Example inputs are available in the src\inputs folder. These example files can be copied and have their keywords values modified to run problems.
 
 A synopsis of available keywords to be used in input decks is provided here:
 
