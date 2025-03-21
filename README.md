@@ -7,9 +7,11 @@ Julia software package to solve thermal radiatiative transfer problems using the
 
 
 ## Dependencies
-Random
+Random \
 Plots
 
+
+## Example Problems and Input Deck System
 
 This code uses an input deck system to allow users to configure many different options for simulations.
 
