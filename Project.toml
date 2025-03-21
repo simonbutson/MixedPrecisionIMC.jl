@@ -3,6 +3,10 @@ uuid = "1aba15cf-43f7-482c-a979-1e374f504042"
 authors = ["simonbutson <butsons@oregonstate.edu> and contributors"]
 version = "1.0.0-DEV"
 
+[deps]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+
 [compat]
 julia = "1.6.7"
 
@@ -11,3 +15,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
+
