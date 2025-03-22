@@ -4,13 +4,13 @@ Julia software package to solve thermal radiatiative transfer problems using the
 
 ## Installation & Running Instructions
 
-The MixedPrecisionIMC software package can either be downloaded as a package.
+The MixedPrecisionIMC software package can either be downloaded as a package or from the MixedPrecisionIMC Github repository.
 
 Package installation: \
 From a Julia REPL: \
 using Pkg.add("MixedPrecisionIMC")
 
-If the package installation does not work, the software can still be run by downloading the MixedPrecisionIMC GitHub repository.
+If the package installation does not work, you can still download the repository and run that through the command line.
 
 Now we will review how to run the SuOlson example problem. \
 Running from a Julia REPL using MixedPrecisionIMC package: \
