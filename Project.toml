@@ -1,7 +1,7 @@
 name = "MixedPrecisionIMC"
 uuid = "1aba15cf-43f7-482c-a979-1e374f504042"
 authors = ["simonbutson <butsons@oregonstate.edu> and contributors"]
-version = "1.0.0-DEV"
+version = "1.0.0"
 
 [deps]
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
