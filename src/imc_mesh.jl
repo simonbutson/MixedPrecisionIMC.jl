@@ -2,6 +2,9 @@
 # Simon Butson
 
 module Mesh
+
+include("imc_utilities.jl")
+using .Utilities
 #using ..Constants
 
     mutable struct MeshStruct
@@ -12,8 +15,8 @@ module Mesh
     sigma::Array # Total opacity
     sigma_a::Array # Absorption opacity
     sigma_s::Array # Scattering opacity
-    energydep::Array # Deposited energy in a timestep
-    emittedenergy::Array # Emitted energy during sourcing in a timestep
+    energydep # Deposited energy in a timestep
+    emittedenergy # Emitted energy during sourcing in a timestep
     totalenergy # Total energy emitted up to current time
     totalenergydep # Total energy deposited up to current time
     lostenergy # Energy of particles that left the problem domain 
@@ -22,9 +25,10 @@ module Mesh
     radenergydens::Array # Radiation energy density
     matenergydens::Array # Material energy density
     temp_saved # Temperature saved values 
+    energyincrease_saved # Energy increase saved values
     radenergy_saved # Radiation energy density saved values
     matenergy_saved # Material energy density saved values
-    energyscale # Scale factors for energy
+    energyscales # Scale factors for energy
     distancescale # Scale factor for distance
     centers # Center points on mesh
     nodes # Nodal points on mesh
@@ -53,7 +57,7 @@ module Mesh
             if meshtype == "UNIFORM"
                 xsize = parse(precision, inputs["XSIZE"])
                 dx_temp = parse(precision, inputs["DX"])
-                Ncells =  Int(xsize/dx_temp)
+                Ncells =  Utilities.tointeger(xsize/dx_temp)
                 dx = fill(dx_temp, Ncells)
                 dy = 1
                 nodes = LinRange(0, xsize, Ncells+1)
@@ -61,13 +65,15 @@ module Mesh
                 perimeter = precision.((0,0))
             elseif meshtype == "NONUNIFORM"
                 nodes = inputs["MESHNODES"]
-                centers = (nodes[1:end-1] + nodes[2:end]) / 2
-                dx = nodes[2:end] - nodes[1:end-1]
-                dy = 1
-                Ncells = length(dx)
+                centers = precision((nodes[1:end-1] + nodes[2:end]) / 2)
+                dx = precision(nodes[2:end] - nodes[1:end-1])
+                dy = precision(1)
+                nodes = precision(nodes)
+                Ncells = tointeger(precision(length(dx)))
                 perimeter = precision.((0,0))
             end
             temp_saved = Vector{Vector{precision}}()
+            energyincrease_saved = Vector{Vector{precision}}()
             radenergy_saved = Vector{Vector{precision}}()
             matenergy_saved = Vector{Vector{precision}}()
         elseif geometry == "2D"
@@ -76,38 +82,41 @@ module Mesh
                 ysize = parse(precision, inputs["YSIZE"])
                 dx_temp = parse(precision, inputs["DX"])
                 dy_temp = parse(precision, inputs["DY"])
-                Ncells = (Int(xsize/dx_temp), Int(ysize/dx_temp)) # Nx and Ny
-                dx = fill(dx_temp, Ncells(1))
-                dy_temp = fill(dy_temp, Ncells(2))
-                xnodes = LinRange(0, xsize, Ncells(1)+1)
-                xcenters =  LinRange(dx_temp/2, xsize - dx_temp/2, Ncells(1))
-                ynodes = LinRange(0, ysize, Ncells(2)+1)
-                ycenters =  LinRange(dy_temp/2, ysize - dy_temp/2, Ncells(2))
+                Ncells = (Utilities.tointeger(xsize/dx_temp), Utilities.tointeger(ysize/dx_temp)) # Nx and Ny
+                dx = fill(dx_temp, Ncells[1])
+                dy = fill(dy_temp, Ncells[2])
+                xnodes = LinRange(0, xsize, Ncells[1]+1)
+                xcenters =  LinRange(dx_temp/2, xsize - dx_temp/2, Ncells[1])
+                ynodes = LinRange(0, ysize, Ncells[2]+1)
+                ycenters =  LinRange(dy_temp/2, ysize - dy_temp/2, Ncells[2])
                 centers = (xcenters, ycenters)
                 nodes = (xnodes, ynodes)
                 perimeter = (zeros(precision, Ncells[1]), zeros(precision, Ncells[1]), zeros(precision, Ncells[2]), zeros(precision, Ncells[2])) # Bottom, Top, Left, Right
             elseif meshtype == "NONUNIFORM"
                 xnodes = inputs["XMESHNODES"]
                 ynodes = inputs["YMESHNODES"]
-                nodes = (xnodes, ynodes)
-                xcenters = (xnodes[1:end-1] + xnodes[2:end]) / 2
-                ycenters = (ynodes[1:end-1] + ynodes[2:end]) / 2
+                xcenters = precision.((xnodes[1:end-1] + xnodes[2:end]) / 2)
+                ycenters = precision.((ynodes[1:end-1] + ynodes[2:end]) / 2)
                 centers = (xcenters, ycenters)
-                dx = xnodes[2:end] - xnodes[1:end-1]
-                dy = ynodes[2:end] - ynodes[1:end-1]
+                dx = precision.(xnodes[2:end] - xnodes[1:end-1])
+                dy = precision.(ynodes[2:end] - ynodes[1:end-1])
+                xnodes = precision.(xnodes)
+                ynodes = precision.(ynodes)
+                nodes = (xnodes, ynodes)
                 Ncells = (length(dx), length(dy))
                 perimeter = (zeros(precision, Ncells[1]), zeros(precision, Ncells[1]), zeros(precision, Ncells[2]), zeros(precision, Ncells[2]))
             end
             temp_saved = Vector{Matrix{precision}}()
+            energyincrease_saved = Vector{Matrix{precision}}()
             radenergy_saved = Vector{Matrix{precision}}()
             matenergy_saved = Vector{Matrix{precision}}()
         end
-
 
         T_init = parse(precision, inputs["T_INIT"])
         T_surface = surface_definer(geometry, inputs["T_SURFACE_REGS"], inputs["T_SURFACE_VALS"], perimeter, nodes, Ncells, precision) # Surface Temperature (keV)
 
         temp = fill(precision(T_init), Ncells) # Temperature (keV)
+        push!(temp_saved, copy(temp)) # Save initial temperature distribution
         fleck = zeros(precision, Ncells) # Fleck factor
         beta = ones(precision, Ncells) # Beta factor
 
@@ -117,8 +126,8 @@ module Mesh
         sigma_s = region_joiner(geometry, inputs["SIGMA_S_REGS"], inputs["SIGMA_S_VALS"], nodes, Ncells, precision) # Scattering opacity
         sigma_s_powers = region_joiner(geometry, inputs["SIGMA_S_REGS"], inputs["SIGMA_S_POWERS"], nodes, Ncells, precision) # Scattering Opacity Temperature Power Laws
        
-        energyscale = parse(precision, inputs["ENERGYSCALE"])
-        distancescale = parse(precision, inputs["DISTANCESCALE"])
+        energyscales = sort(inputs["ENERGYSCALES"], rev=true) # Scale factors for energy, sorted in descending order
+        distancescale = parse(precision, inputs["DISTANCESCALE"]) # Scale factor for distance
 
         sigma_a = sigma_a / distancescale # Scale absorption opacity by distance scale factor
         sigma_s = sigma_s / distancescale # Scale scattering opacity by distance scale factor
@@ -133,8 +142,19 @@ module Mesh
 
         sigma = sigma_a + sigma_s # Total opacity
         radsource = region_joiner(geometry, inputs["RADSOURCE_REGS"], inputs["RADSOURCE_VALS"], nodes, Ncells, precision) # Radiation source term
-        energydep = zeros(precision, Ncells) # Deposited energy in a timestep
-        emittedenergy = zeros(precision, Ncells)
+
+        if length(energyscales) == 1
+            energyscales = parse(precision, inputs["ENERGYSCALES"][1])
+        end
+
+        if geometry == "1D"
+            energydep = zeros(precision, (Ncells, length(energyscales))) # Energy depositions in a timestep, separate arrays for each energy scale 
+            emittedenergy = zeros(precision, (Ncells, length(energyscales))) # Emitted energy during sourcing in a timestep
+        elseif geometry == "2D"
+            energydep = zeros(precision, (Ncells[1], Ncells[2], length(energyscales))) # Energy depositions in a timestep, separate arrays for each energy scale
+            emittedenergy = zeros(precision, (Ncells[1], Ncells[2], length(energyscales))) # Emitted energy during sourcing in a timestep
+        end
+        
         totalenergy = precision(0.0)
         totalenergydep = precision(0.0)
         lostenergy = precision(0.0)
@@ -145,7 +165,7 @@ module Mesh
         matenergydens = zeros(precision, Ncells) # Material energy density
 
         mesh = MeshStruct(temp, T_surface, fleck, beta, sigma, sigma_a, sigma_s, energydep, emittedenergy, totalenergy, totalenergydep, lostenergy, bee, radsource, radenergydens, 
-                matenergydens, temp_saved, radenergy_saved, matenergy_saved, energyscale, distancescale, centers, nodes, dx, dy, perimeter, Ncells)
+                matenergydens, temp_saved, energyincrease_saved, radenergy_saved, matenergy_saved, energyscales, distancescale, centers, nodes, dx, dy, perimeter, Ncells)
 
         return mesh
     end

@@ -11,7 +11,10 @@ include("../src/imc_sourcing.jl")
 include("../src/imc_transport.jl")
 include("../src/imc_clean.jl")
 include("../src/imc_tally.jl")
+include("../src/imc_energycheck.jl")
+include("../src/imc_utilities.jl")
 include("../src/imc_output.jl")
+
 
 using Test
 using Random
@@ -22,6 +25,8 @@ using .Sourcing
 using .Transport
 using .Clean
 using .Tally
+using .EnergyCheck
+using .Utilities
 using ..Constants
 
 @testset "Sample Test Set" begin

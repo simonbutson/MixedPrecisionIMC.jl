@@ -4,6 +4,9 @@
 #print("phys_a is ", a, "\n")
 
 module Update
+
+include("imc_utilities.jl")
+using .Utilities
 using ..Constants
 
     function update(mesh, simvars)
@@ -19,11 +22,16 @@ using ..Constants
         
         mesh.beta = (4 * phys_a * mesh.temp.^3) ./ mesh.bee
 
-        if simvars.geometry == "1D"
-            mesh.sigma_a[:,1] = mesh.sigma_a[:,2].*mesh.temp.^(mesh.sigma_a[:,3])
-            #mesh.sigma_a[:,1] = mesh.sigma_a[:,2] ./ mesh.temp ./ mesh.temp ./ mesh.temp
+        if simvars.geometry == "1D"            
+            #mesh.sigma_a[:,1] = mesh.sigma_a[:,2].*mesh.temp.^(mesh.sigma_a[:,3])
+            mesh.sigma_a[:,1] = mesh.sigma_a[:,2] ./ mesh.temp ./ mesh.temp ./ mesh.temp
             mesh.sigma_s[:,1] = mesh.sigma_s[:,2].*mesh.temp.^(mesh.sigma_s[:,3])
             sigma_a = mesh.sigma_a[:,1]
+
+            for i in 1:mesh.Ncells
+                mesh.fleck[i] = precision(1.0 / (1.0 + Utilities.sorter([mesh.distancescale, alpha, mesh.beta[i], phys_c, simvars.dt, sigma_a[i]], [1] , precision)[1]))
+            end
+
         elseif simvars.geometry == "2D"
             mesh.sigma_a[:,:,1] = mesh.sigma_a[:,:,2].*mesh.temp.^(mesh.sigma_a[:,:,3])
             mesh.sigma_s[:,:,1] = mesh.sigma_s[:,:,2].*mesh.temp.^(mesh.sigma_s[:,:,3])
@@ -36,7 +44,11 @@ using ..Constants
 
         #print("sigma_a = ", sigma_a, "")
 
-        mesh.fleck = precision.(1.0 ./ (1.0 .+ mesh.distancescale * alpha .* mesh.beta * phys_c * simvars.dt .* sigma_a))
+        
+
+        #print(Utilities.sorter([mesh.distancescale, alpha, mesh.beta[1], phys_c, simvars.dt, sigma_a[1]], [1] , precision)[1], "\n")
+
+        #mesh.fleck = precision.(1.0 ./ (1.0 .+ mesh.distancescale * alpha .* mesh.beta * phys_c * simvars.dt .* sigma_a))
         #print("Fleck factor = ", mesh.fleck, "\n")
     end
 end

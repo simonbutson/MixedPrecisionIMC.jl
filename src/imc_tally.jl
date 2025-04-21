@@ -24,37 +24,90 @@ function tally(inputs, mesh, simvars, particles)
     end
 
     # Radiation energy density
-    radenergydens = zeros(precision, mesh.Ncells)
-    radenergydens = phys_a * (mesh.temp).^4 # keV/cm^3
+    #radenergydens = zeros(precision, mesh.Ncells) # keV/cm^3
 
     #nrg_inc = (mesh.energydep ./ (mesh.dx .* mesh.dy' * mesh.energyscale )) .- (sigma_a .* mesh.fleck .* radenergydens * phys_c * simvars.dt)
-  
-    nrg_inc = (mesh.energydep ./ (mesh.dx .* mesh.dy' * mesh.energyscale)) .- mesh.emittedenergy
+    
+    #print("Emitted energy ", sum(mesh.emittedenergy), "\n")
 
-    #print("The energy increase is ", nrg_inc, "\n")
+    nrg_inc = zeros(precision, mesh.Ncells)
+    for ii in eachindex(mesh.energyscales)
+        if simvars.geometry == "1D"
+            #push!(nrg_incvecs, (mesh.energydep[:,ii] ./ (mesh.dx) .- mesh.emittedenergy[:,ii]) / mesh.energyscales[ii])
+            nrg_inc += (mesh.energydep[:,ii] ./ (mesh.dx) .- mesh.emittedenergy[:,ii]) / mesh.energyscales[ii]
+            mesh.totalenergydep += sum(mesh.energydep[:,ii] / mesh.energyscales[ii])
+        elseif simvars.geometry == "2D"
+            nrg_inc += (mesh.energydep[:,:,ii] ./ (mesh.dx .* mesh.dy') .- mesh.emittedenergy[:,:,ii]) / mesh.energyscales[ii]
+            print("Energy increase in group ", ii, " is ", sum((mesh.energydep[:,:,ii] ./ (mesh.dx .* mesh.dy') - mesh.emittedenergy[:,:,ii]) / mesh.energyscales[ii]), "\n")
+            mesh.totalenergydep += sum(mesh.energydep[:,:,ii] / mesh.energyscales[ii])
+        end
+    end
+    push!(mesh.energyincrease_saved, nrg_inc) # Add the current energy increase to a saved list
+    #nrg_inc = sum(nrg_incvecs) # Sum over the energy groups
+
+    #nrg_inc = (mesh.energydep ./ (mesh.dx .* mesh.dy') - mesh.emittedenergy)
+
+    #print("Nan's energydep ", sum(isnan.(mesh.energydep)), "\n")
+    #print("Nan's nrg_inc ", sum(isnan.(nrg_inc)), "\n")
+    #print("Nan's emittedenergy ", sum(isnan.(mesh.emittedenergy)), "\n")
    
+    print("Energy increase: ", sum(nrg_inc), "\n")
     mesh.matenergydens += nrg_inc
 
-    mesh.temp = mesh.temp .+  nrg_inc ./ mesh.bee
+
+    mesh.temp = mesh.temp .+  nrg_inc ./ (mesh.bee)
+    #mesh.temp = mesh.temp_saved[1] .+ sum(mesh.energyincrease_saved) ./ mesh.bee # Update the temperature based on the energy increase
+
 
     #print("The updated mesh temperature is ", mesh.temp)
 
     # Save radiation energy
     mesh.radenergydens = zeros(precision, mesh.Ncells)
 
+
+    radenergydens_vectors = Vector{Vector{precision}}()
+
+    # if inputs["GEOMETRY"] == "1D"
+    #     for ii in 1:mesh.Ncells
+    #         push!(radenergydens_vectors, [])
+    #     end   
+    #     for jj in eachindex(particles)
+    #         rad_index = Int(particles[jj][3])
+    #         push!(radenergydens_vectors[rad_index], particles[jj][7]/(mesh.dx[rad_index]*particles[jj][9]))
+    #     end
+    #     for kk in 1:mesh.Ncells
+    #         mesh.radenergydens[kk] = sum(radenergy_vectors[kk])
+    #     end
+    # elseif inputs["GEOMETRY"] == "2D"
+    #     for ii in 1:mesh.Ncells[1]
+    #         for jj in 1:mesh.Ncells[2]
+    #             push!(radenergydens_vectors, [])
+    #         end
+    #     end   
+    #     for kk in eachindex(particles)
+    #         rad_xindex = Int(particles[kk][2])
+    #         rad_yindex = Int(particles[kk][3])
+    #         push!(radenergydens_vectors[(rad_xindex-1)*mesh.Ncells[2] + rad_yindex], particles[kk][8]/(mesh.dx[rad_xindex]*mesh.dy[rad_yindex]*particles[kk][10]))
+    #     end
+    #     for ii in 1:mesh.Ncells[1]
+    #         for jj in 1:mesh.Ncells[2]
+    #             mesh.radenergydens[ii,jj] = sum(radenergydens_vectors[(ii-1)*mesh.Ncells[2] + jj])
+    #         end
+    #     end   
+    # end
+ 
     for ii in eachindex(particles)
         if inputs["GEOMETRY"] == "1D"
             rad_index = Int(particles[ii][3])
-            mesh.radenergydens[rad_index] += particles[ii][7]/(mesh.dx[rad_index])
+            mesh.radenergydens[rad_index] += particles[ii][7]/(mesh.dx[rad_index]*particles[ii][9])
         else
             rad_xindex = Int(particles[ii][2])
             rad_yindex = Int(particles[ii][3])
-            mesh.radenergydens[rad_xindex,rad_yindex] += particles[ii][8]/(mesh.dx[rad_xindex]*mesh.dx[rad_yindex])
+            mesh.radenergydens[rad_xindex,rad_yindex] += particles[ii][8]/(mesh.dx[rad_xindex]*mesh.dy[rad_yindex]*particles[ii][10])
         end
     end
-    mesh.radenergydens =  mesh.radenergydens ./ mesh.energyscale
 
-    mesh.totalenergydep += sum(mesh.energydep)
+    
 
     push!(mesh.temp_saved, copy(mesh.temp)) # Add the current mesh temperature to a saved list
 

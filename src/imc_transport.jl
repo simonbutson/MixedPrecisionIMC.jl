@@ -2,7 +2,12 @@
 # Simon Butson
 
 module Transport
+
+include("imc_utilities.jl")
+
 using Random
+using Base.Iterators
+using .Utilities
 using ..Constants
 
 function MC(mesh, simvars, particles)
@@ -17,25 +22,38 @@ function MC(mesh, simvars, particles)
 
     endsteptime = simvars.dt
     precision = simvars.precision
+    pairwise = simvars.pairwise
     distancescale = mesh.distancescale
     dx = mesh.dx
     Ncells = mesh.Ncells
     sigma_a = mesh.sigma_a[:,1]
     sigma_s = mesh.sigma_s[:,1]
 
-    mesh.energydep = zeros(precision, Ncells)
+    if pairwise == "TRUE"
+        energydep_vectors = Vector{Vector{precision}}()
+
+        for ii in 1:mesh.Ncells
+            for kk in 1:length(mesh.energyscales)
+                push!(energydep_vectors, [])
+            end
+        end   
+    end
+
+    mesh.energydep = zeros(precision, (Ncells, length(mesh.energyscales)))
     for particle in eachindex(particles)
     
         currentparticle = particles[particle, :] 
         #print(currentparticle, "\n")
         origin = currentparticle[1][1]
         currenttime = currentparticle[1][2]
-        cellindex = Int64(currentparticle[1][3])
+        cellindex = Utilities.tointeger(currentparticle[1][3])
         position = currentparticle[1][4] 
         mu = currentparticle[1][5]
         freq = currentparticle[1][6]
         energy = currentparticle[1][7]
         startenergy = currentparticle[1][8]
+        energyscale = currentparticle[1][9]
+        energyscaleindex = findfirst(isequal(energyscale), mesh.energyscales)
 
         minenergy = precision(0.01 * startenergy) # Minimum particle energy cut-off
 
@@ -64,11 +82,16 @@ function MC(mesh, simvars, particles)
             newenergy = energy * (exp(-sigma_a[cellindex] * mesh.fleck[cellindex]*dist)) # Separate exponent to prevent overflow in argument from large opacities
             #newenergy = energy * exp(-sigma_a * dist)
             if newenergy <= minenergy
-                newenergy = 0.0
+                newenergy = precision(0.0)
             end
 
             # Deposit the particle's energy
-            mesh.energydep[cellindex] += energy - newenergy
+            if pairwise == "TRUE"
+                push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy - newenergy)
+            else
+                mesh.energydep[cellindex, energyscaleindex] += energy - newenergy
+            end
+
 
             # Advance position, time, and energy
             # If energy is zero or domain boundary crossed -> kill particle
@@ -93,7 +116,7 @@ function MC(mesh, simvars, particles)
                             mu = -mu
                         elseif simvars.BC[2] == "VACUUM"
                             # Vacuum boundary
-                            mesh.lostenergy += energy
+                            mesh.lostenergy += energy/energyscale
                             particles[particle][8] = -1.0
                             break
                         end
@@ -108,7 +131,7 @@ function MC(mesh, simvars, particles)
                             mu = -mu
                         elseif simvars.BC[1] == "VACUUM"
                             # Vacuum boundary
-                            mesh.lostenergy += energy
+                            mesh.lostenergy += energy/energyscale
                             particles[particle][8] = -1.0
                             break
                         end
@@ -136,8 +159,8 @@ function MC(mesh, simvars, particles)
                 # Finished with this particle
                 # Update the particle's properties in the list
                 # Starting energy doesn't change
-                currenttime = 0.0
-                particles[particle][:] = [origin, currenttime, cellindex, position, mu, freq, energy, startenergy]
+                currenttime = precision(0.0)
+                particles[particle][:] = [origin, currenttime, cellindex, position, mu, freq, energy, startenergy, energyscale]
                 #global n_census += 1
                 break
             end
@@ -145,6 +168,14 @@ function MC(mesh, simvars, particles)
     # New particle history
     #print("Particle state at end of time-step ", particles[particle][:], "\n")
     end
+    if pairwise == "TRUE"
+        for ii in 1:mesh.Ncells
+            for kk in 1:length(mesh.energyscales)
+                mesh.energydep[ii,kk] = sum(energydep_vectors[(kk-1)*mesh.Ncells + ii])
+            end
+        end
+    end
+    print(mesh.energydep[1,1], "\n")
     #print("There were ", iterations, " total iterations this time-step. ")
     #print("The number of particles that were absorbed is ", absorbed_particles, "\n")
 end
@@ -177,7 +208,7 @@ function MC_RW(mesh, simvars, rwvars, particles)
         #print(currentparticle, "\n")
         origin = currentparticle[1][1]
         currenttime = currentparticle[1][2]
-        cellindex = Int64(currentparticle[1][3])
+        cellindex = Utilities.tointeger(currentparticle[1][3])
         position = currentparticle[1][4] 
         mu = currentparticle[1][5]
         freq = currentparticle[1][6]
@@ -217,7 +248,7 @@ function MC_RW(mesh, simvars, rwvars, particles)
 
                 a = D*simvars.dt/(R0*R0)
 
-                Pr = P_r(a)
+                Pr = P_r(a, simvars)
                 Pt = 1-Pr
                 if u < Pt
                     # Solve for actual time t when particle left
@@ -286,7 +317,7 @@ function MC_RW(mesh, simvars, rwvars, particles)
             # Calculate new energy and deposit lost energy
             newenergy = energy * exp(-sigma_a[cellindex] * mesh.fleck[cellindex] * dist)
             if newenergy <= minenergy
-                newenergy = 0.0
+                newenergy = precision(0.0)
             end
 
             # Deposit the particle's energy
@@ -321,7 +352,7 @@ function MC_RW(mesh, simvars, rwvars, particles)
                         end
                     end
                     cellindex += 1
-                    position = 0 
+                    position = precision(0) 
                 end
                 if mu < 0
                     if cellindex == 1 # Left-boundary
@@ -357,7 +388,7 @@ function MC_RW(mesh, simvars, rwvars, particles)
                 # Update the particle's properties in the list
                 # Starting energy doesn't change
                 currenttime = 0.0
-                particles[particle][:] = [origin, currenttime, cellindex, position, mu, freq, energy, startenergy]
+                particles[particle][:] = [origin, currenttime, cellindex, position, mu, freq, energy, startenergy, energyscale]
                 #global n_census += 1
                 break
             end
@@ -381,70 +412,102 @@ function MC2D(mesh, simvars, particles)
     None
     """
 
+    
     precision = simvars.precision
-    mesh.energydep = zeros(precision, mesh.Ncells)
+    distancescale = mesh.distancescale
+    pairwise = simvars.pairwise
     sigma_a = mesh.sigma_a[:,:,1]
     sigma_s = mesh.sigma_s[:,:,1]
+    mesh.energydep = zeros(precision, (mesh.Ncells[1], mesh.Ncells[2], length(mesh.energyscales)))
+
+    if pairwise == "TRUE"
+        energydep_vectors = Vector{Vector{precision}}()
+
+        for ii in 1:mesh.Ncells[1]
+            for jj in 1:mesh.Ncells[2]
+                for kk in 1:length(mesh.energyscales)
+                push!(energydep_vectors, [])
+                end
+            end
+        end   
+    end
 
     for particle in eachindex(particles)
         currentparticle = particles[particle, :] 
         currenttime = currentparticle[1][1]
-        xindex = Int(currentparticle[1][2])
-        yindex = Int(currentparticle[1][3])
+        xindex = Utilities.tointeger(currentparticle[1][2])
+        yindex = Utilities.tointeger(currentparticle[1][3])
         xposition = currentparticle[1][4]
         yposition = currentparticle[1][5]
         mu = currentparticle[1][6]
         frq = currentparticle[1][7]
         energy = currentparticle[1][8]
         startenergy = currentparticle[1][9]
+        energyscale = currentparticle[1][10]
+        energyscaleindex = findfirst(isequal(energyscale), mesh.energyscales)
 
         #print("Particle number ", particle, "\n")
 
-        minenergy = 0.01 * startenergy
-        #print("Particle number ", particle, "\n")
+        minenergy = precision(0.01 * startenergy)   # Minimum particle energy cut-off
+        
         while true
-            xvec = [cos(mu),sin(mu)] # Unit direction vector
+            xvec = precision.([cos(mu),sin(mu)]) # Unit direction vector
             # Calculate distances to boundary, collision, and census -> take minimum
 
             # Boundary distance
             if xvec[1] > 0
-                dist_bx = abs((mesh.dx[xindex] - xposition)/xvec[1])
+                dist_bx = abs((mesh.dx[xindex]*distancescale - xposition)/xvec[1])
             else
                 dist_bx = abs(xposition/xvec[1])
             end
 
             if xvec[2] > 0
-                dist_by = abs((mesh.dy[yindex] - yposition)/xvec[2])
+                dist_by = abs((mesh.dy[yindex]*distancescale - yposition)/xvec[2])
             else
                 dist_by = abs(yposition/xvec[2])
             end
-            dist_b = min(dist_bx , dist_by)
-            
+
+            # Minimum distance to boundary, ignore NaN's that occur when particle orthogonal to one direction
+            if isnan(dist_bx) == true
+                dist_b = dist_by
+            elseif isnan(dist_by) == true
+                dist_b = dist_bx
+            else
+                dist_b = min(dist_bx, dist_by) 
+            end
+                        
+
             # Collision distance
             dist_col = randexp(precision)/(sigma_a[xindex,yindex]*(1-mesh.fleck[xindex,yindex]) + sigma_s[xindex,yindex])
             if dist_col < 0
-                print("Warning ", dist_col, " ", mesh.sigma[xindex,yindex], " ", mesh.fleck[xindex,yindex], "\n")
+                print("Warning ", dist_col, " ", sigma_a[xindex,yindex], " ", mesh.fleck[xindex,yindex], "\n")
                 print("Temperature ", mesh.temp[xindex,yindex], "\n")
                 sleep(1)
             end
 
             # Census distance
-            dist_cen = phys_c * (simvars.dt-currenttime)
+            dist_cen = phys_c * (simvars.dt-currenttime) * distancescale
             
             dist = min(dist_b, dist_col, dist_cen)
-            if dist == 0 || isnan(dist) == true
+            if isnan(dist) == true
                 print("Warning ", dist_bx, " ", dist_by, " ", xvec, " ", xindex, " ", yindex, "\n")
+                print(dist_b, " ", dist_col, " ", dist_cen, " ", dist, " ", dist_bx, " ", dist_by, "\n")
+                sleep(1)
             #print(dist_b, " ", dist_col, " ", dist_cen, " ", dist, " ", dist_bx, " ", dist_by, "\n")
             end
 
             # Calculate new energy and deposit lost energy
             newenergy = energy * exp(-mesh.fleck[xindex,yindex] * sigma_a[xindex,yindex] * dist)
             if newenergy <= minenergy
-                newenergy = 0.0
+                newenergy = precision(0.0)
             end
 
             # Deposit the particle's energy
-            mesh.energydep[xindex,yindex] += energy - newenergy
+            if pairwise == "TRUE"
+                push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], energy - newenergy)
+            else
+                mesh.energydep[xindex,yindex, energyscaleindex] += energy - newenergy
+            end
 
             if isnan(newenergy) == true || isnan(energy) == true
                 print(energy, " ", mesh.fleck[xindex,yindex], " ", sigma_a[xindex,yindex], " ", dist, "\n")
@@ -452,7 +515,7 @@ function MC2D(mesh, simvars, particles)
 
             # Advance position, time, and energy
             # If energy is zero or domain boundary crossed -> kill particle
-            if newenergy == 0.0
+            if iszero(newenergy) == true 
                 # Flag particle for later destruction
                 particles[particle][8] = -1.0
                 break
@@ -462,7 +525,7 @@ function MC2D(mesh, simvars, particles)
             # Otherwise, advance the position, time and energy
             xposition += dist * xvec[1]
             yposition += dist * xvec[2]
-            currenttime += dist / phys_c    
+            currenttime += (dist/distancescale) / phys_c    
             energy = newenergy   
 
             # Check if particle has left the cell
@@ -475,14 +538,14 @@ function MC2D(mesh, simvars, particles)
                                 xreflected = xvec .- v .* (2(v'xvec))
                                 mu = atan(xreflected[2],xreflected[1])
                             elseif simvars.BC[2] == "VACUUM"
-                                mesh.lostenergy += energy
+                                mesh.lostenergy += energy/energyscale
                                 particles[particle][8] = -1.0
                                 break
                             end
                             continue
                         end
                         xindex += 1
-                        xposition = 0
+                        xposition = precision(0.0)
                     else
                         if xindex == 1 # Left-boundary
                             if simvars.BC[1] == "REFLECT"
@@ -490,14 +553,14 @@ function MC2D(mesh, simvars, particles)
                                 xreflected = xvec .- v .* (2(v'xvec))
                                 mu = atan(xreflected[2],xreflected[1])
                             elseif simvars.BC[1] == "VACUUM"
-                                mesh.lostenergy += energy
+                                mesh.lostenergy += energy/energyscale
                                 particles[particle][8] = -1.0
                                 break
                             end
                             continue
                         end
                         xindex -= 1
-                        xposition = mesh.dx[xindex]
+                        xposition = mesh.dx[xindex]*distancescale
                     end
                 else
                     if sin(mu) > 0
@@ -507,14 +570,14 @@ function MC2D(mesh, simvars, particles)
                                 xreflected = xvec .- v .* (2(v'xvec))
                                 mu = atan(xreflected[2],xreflected[1])
                             elseif simvars.BC[3] == "VACUUM"
-                                mesh.lostenergy += energy
+                                mesh.lostenergy += energy/energyscale
                                 particles[particle][8] = -1.0
                                 break
                             end    
                             continue
                         end
                         yindex += 1
-                        yposition = 0
+                        yposition = precision(0.0)
                     else
                         if yindex == 1 # Bottom-boundary
                             if simvars.BC[4] == "REFLECT"
@@ -522,14 +585,14 @@ function MC2D(mesh, simvars, particles)
                                 xreflected = xvec .- v .* (2(v'xvec))
                                 mu = atan(xreflected[2],xreflected[1])
                             elseif simvars.BC[4] == "VACUUM"
-                                mesh.lostenergy += energy
+                                mesh.lostenergy += energy/energyscale
                                 particles[particle][8] = -1.0
                                 break
                             end
                             continue
                         end
                         yindex -= 1
-                        yposition = mesh.dy[yindex]
+                        yposition = mesh.dy[yindex]*distancescale
                     end
                 end
                 continue
@@ -537,37 +600,47 @@ function MC2D(mesh, simvars, particles)
 
             if dist == dist_col
                 # Isotropic Scattering
-                mu = 2*pi*rand(precision)
+                mu = precision(2*pi*rand(precision))
                 #print(xindex, " ", yindex, " ", xposition, " ", yposition, " ", currenttime, " ", dist, "\n")
             end
 
             if dist == dist_cen
-                currenttime = 0
-                particles[particle][:] = [currenttime, xindex, yindex, xposition, yposition, mu, frq, energy, startenergy]
+                currenttime = precision(0)
+                particles[particle][:] = [currenttime, xindex, yindex, xposition, yposition, mu, frq, energy, startenergy, energyscale]
                 #print("Done with particle \n")
                 break
             end
 
         end
     end
+    if pairwise == "TRUE"
+        for ii in 1:mesh.Ncells[1]
+            for jj in 1:mesh.Ncells[2]
+                for kk in 1:length(mesh.energyscales)
+                    mesh.energydep[ii,jj,kk] = sum(energydep_vectors[((ii-1)*mesh.Ncells[2] + jj) + (kk-1)*mesh.Ncells[1]*mesh.Ncells[2]])
+                end
+            end
+        end   
+    end
 end
 
-function P_r(a)
+function P_r(a, simvars)
     """ Probability of a particle not reaching the surface of sphere with radius R_0
         Parameters:
         R_0: Radius of Sphere
         D:  Diffusion Constant {D = c/(3*(1-f)*sigma_R)}
         t: Time 
         a = D*t/(R_0^2)
+        simvars: Simulation variables object
     """
     
-    Pr = 0.0
+    Pr = simvars.precision(0.0)
     if a != 0 
         for n in range(1,100)
             Pr += (-1)^(n-1) * exp(-a*(pi*n)^2)*2
         end
     else
-        Pr = 1.0
+        Pr = simvars.precision(1.0)
     end
 
     return Pr
@@ -603,14 +676,14 @@ function bisection(array,value)
     end
 end
 
-function randomwalk_table(aVals, prVals, ptVals)
+function randomwalk_table(aVals, prVals, ptVals, simvars)
     """Create a lookup table for the probability of a particle not reaching the surface of a sphere
     with radius R_0. The table is created for a range of a values, and the corresponding Pr and Pt values
     are stored in the arrays prVals and ptVals respectively."""
   # Create lookup table
   for i in eachindex(aVals)
-    prVals[i] = P_r(aVals[i])
-    ptVals[i] = 1-prVals[i]
+    prVals[i] = P_r(aVals[i], simvars)
+    ptVals[i] = simvars.precision(1-prVals[i])
   end
     return prVals, ptVals  
 

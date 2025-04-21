@@ -82,7 +82,11 @@ module Input
         for (key, value) in params
             if key != raw"PRECISION"
                 if contains(join(value), ',')
-                    params[key] = separated_array_parser(value, params["PRECISION"])
+                    if key == raw"MESHNODES" || key == raw"XMESHNODES" || key == raw"YMESHNODES"
+                        params[key] = separated_array_parser(value, Float64) # Needed to accurately calculate dx/dy values for fine non-uniform meshes
+                    else
+                        params[key] = separated_array_parser(value, params["PRECISION"])
+                    end
                 end
             end
         end

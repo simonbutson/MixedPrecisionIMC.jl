@@ -15,6 +15,7 @@ include("imc_transport.jl")
 include("imc_clean.jl")
 include("imc_tally.jl")
 include("imc_energycheck.jl")
+include("imc_utilities.jl")
 include("imc_output.jl")
 
 using .Input
@@ -26,6 +27,7 @@ using .Transport
 using .Clean
 using .Tally
 using .EnergyCheck
+using .Utilities
 
 # Main Control loop
 
@@ -39,6 +41,8 @@ mutable struct SimVars
     timesteps
     n_input::Int
     n_max::Int
+    cellmin
+    pairwise
     BC
     precision::DataType
     geometry
@@ -65,9 +69,9 @@ function main(args)
         input_file = args[1] # Use user provided input file
     end
 
-    print("Input file: ", input_file, "\n")
+    #input_file = raw"src\inputs\CrookedPipe.txt"
 
-    #input_file = raw"src\inputs\SuOlson.txt"
+    print("Input file: ", input_file, "\n")
 
     inputs = Input.readInputs(input_file)
 
@@ -82,8 +86,7 @@ function main(args)
 
     precision = inputs["PRECISION"]
     timestepping = uppercase(string(inputs["TIMESTEPPING"]))
-
-
+ 
     if timestepping == "CONSTANT"
         dt = parse(precision,inputs["DT"])
         t_end = parse(precision, inputs["ENDTIME"])
@@ -98,11 +101,13 @@ function main(args)
         dt = dt0
     end
 
-    n_input = parse(Int, inputs["NINPUT"])
-    n_max = parse(Int, inputs["NMAX"])
+    n_input = Utilities.tointeger(parse(precision, inputs["NINPUT"]))
+    n_max = Utilities.tointeger(parse(precision, inputs["NMAX"]))
+    cellmin = parse(precision, inputs["CELLMIN"])
+    pairwise = inputs["PAIRWISE"]
     geometry = inputs["GEOMETRY"]
 
-    t = 0.0
+    t = precision(0.0)
     timesteps = Vector{precision}()
 
     particles = Vector{Vector{}}()
@@ -113,28 +118,29 @@ function main(args)
         RBC = uppercase(string(inputs["RIGHTBC"]))
         BC = (LBC, RBC)
 
-        if inputs["RANDOMWALK"] == "TRUE"
+        simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, n_input, n_max, cellmin, pairwise, BC, precision, geometry)
+
+        if uppercase(string(inputs["RANDOMWALK"])) == "TRUE"
             # Create lookup table from probabilities
             aVals = precision.(LinRange(0,10,1000))
             prVals = zeros(precision, 1000)
             ptVals = zeros(precision, 1000)
-            prVals, ptVals = Transport.randomwalk_table(aVals, prVals, ptVals)
+            prVals, ptVals = Transport.randomwalk_table(aVals, prVals, ptVals, simvars)
             rwvars = RWVars(aVals, prVals, ptVals)
         end
 
-        simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, n_input, n_max, BC, precision, geometry)
         while simvars.t <= simvars.t_end
             print("Time: ", simvars.t, "\n")
             Update.update(mesh, simvars)
             Sourcing.sourcing(mesh, simvars, particles)
-            if inputs["RANDOMWALK"] == "TRUE"
+            if uppercase(string(inputs["RANDOMWALK"])) == "TRUE"
                 Transport.MC_RW(mesh, simvars, rwvars, particles)
             else
             Transport.MC(mesh, simvars, particles)
             end
             Clean.clean(particles)
             Tally.tally(inputs, mesh, simvars, particles)
-            EnergyCheck.energychecker(inputs, mesh, particles)
+            EnergyCheck.energychecker(inputs, mesh, simvars, particles)
             Output.plotting(inputs, mesh, simvars)
             timestep(timestepping, simvars)
         end
@@ -146,7 +152,7 @@ function main(args)
         BBC = uppercase(string(inputs["BOTTOMBC"]))
         BC = (LBC, RBC, TBC, BBC)
 
-        simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, n_input, n_max, BC, precision, geometry)
+        simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, n_input, n_max, cellmin, pairwise, BC, precision, geometry)
         while simvars.t <= simvars.t_end
             print("Time: ", simvars.t, "\n")
             Update.update(mesh, simvars)
@@ -154,7 +160,7 @@ function main(args)
             Transport.MC2D(mesh, simvars, particles)
             Clean.clean(particles)
             Tally.tally(inputs, mesh, simvars, particles)
-            EnergyCheck.energychecker(inputs, mesh, particles)
+            EnergyCheck.energychecker(inputs, mesh, simvars, particles)
             Output.plotting(inputs, mesh, simvars)
             timestep(timestepping, simvars)
         end

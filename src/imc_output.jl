@@ -3,6 +3,7 @@
 
 module Output
 using Plots
+using JLD2
 
 function plotting(inputs, mesh, simvars)
     """ Function to plot the output of the IMC simulation
@@ -40,14 +41,30 @@ function plotting(inputs, mesh, simvars)
         end
         display(p)
     elseif inputs["PLOTVARS"] == "HEATMAP"
-        p = heatmap(mesh.centers[1], mesh.centers[2], mesh.temp', title=inputs["NAME"]*" "*string(inputs["PRECISION"])*" at t = "*string(round(simvars.t,sigdigits=3)),  colorbar_title=" \nTemperature [keV]", clims=(0,0.5), right_margin=5Plots.mm)
+        p = heatmap(mesh.centers[1], mesh.centers[2], mesh.temp', title=inputs["NAME"]*" "*string(inputs["PRECISION"])*" at t = "*string(round(simvars.t,sigdigits=3)),  colorbar_title=" \nTemperature [keV]", clims=(inputs["CLIMS"][1],inputs["CLIMS"][2]), right_margin=5Plots.mm)
         xlabel!("x [cm]")
         ylabel!("y [cm]")
         display(p)
     end
+
     if simvars.t == simvars.t_end
+        if inputs["SAVEVARS"] == "TRUE"
+
+                        
+            # Save the mesh and simulation variables to a JLD2 file
+            filename = "..\\outputs\\" * inputs["NAME"] * "_" * string(inputs["PRECISION"]) * ".jld2"
+            jldsave(filename; simvars.timesteps, mesh.centers, mesh.temp_saved, mesh.radenergy_saved, mesh.matenergy_saved)
+
+    
+            # open("..\\outputs\\" * inputs["NAME"] * "_" * string(inputs["PRECISION"]) * ".txt", "w") do io
+            #     write(io, "Time: ", simvars.t, "\n")
+            #     write(io, "Temperature: ", mesh.temp, "\n")
+            #     write(io, "Radiation Energy Density: ", mesh.radenergydens, "\n")
+            #     write(io, "Material Energy Density: ", mesh.matenergydens, "\n")
+            # end
+        end
         if inputs["SAVEFIG"] == "TRUE"
-            savefig(inputs["NAME"]*"_"*inputs["PLOTVARS"]*"_"*string(inputs["PRECISION"])*".png")
+            savefig("..\\outputs\\" * inputs["NAME"] * "_" * inputs["PLOTVARS"] * "_" * string(inputs["PRECISION"]) * ".png")
         end
         if inputs["SAVEANIMATION"] == "TRUE"
             print(length(simvars.timesteps), " frames to generate \n")
@@ -57,7 +74,7 @@ function plotting(inputs, mesh, simvars)
                 xlabel!("x [cm]")
                 ylabel!("y [cm]")
             end
-            gif(anim, inputs["NAME"]*"_"*inputs["PLOTVARS"]*"_"*string(inputs["PRECISION"])*".gif", fps = 5)
+            gif(anim, "..\\outputs\\" * inputs["NAME"] * "_" * inputs["PLOTVARS"] * "_"*string(inputs["PRECISION"]) * ".gif", fps = 5)
         end
     end
 end

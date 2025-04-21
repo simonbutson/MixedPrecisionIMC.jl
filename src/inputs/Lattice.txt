@@ -59,7 +59,7 @@ ALPHA = 1.0
 RANDOMWALK = FALSE
 
 #### Scaling ####
-ENERGYSCALE = 1
+ENERGYSCALES = [1]
 DISTANCESCALE = 1
 
 ##### Outputs #####
