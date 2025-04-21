@@ -64,7 +64,7 @@ end
     MixedPrecisionIMC.Constants.set_constants(input_data)
     import MixedPrecisionIMC.Constants: phys_c, phys_a, alpha
 
-    simvars = MixedPrecisionIMC.SimVars(0.00, 0.01, 0.0, 0.0, 0.0, 1.0, 0.01, 500, 100000, "REFLECTIVE", Float64, "2D")
+    simvars = MixedPrecisionIMC.SimVars(0.00, 0.01, 0.0, 0.0, 0.0, 1.0, 0.01, 500, 100000, 1, "FALSE", "REFLECTIVE", Float64, "2D")
 
     MixedPrecisionIMC.Update.update(mesh, simvars)
     

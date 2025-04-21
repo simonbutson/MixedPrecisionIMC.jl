@@ -31,7 +31,8 @@ Other example problems can be run by changing the example problem filepath to th
 
 ## Dependencies
 Random \
-Plots
+Plots \
+JLD2
 
 These dependencies can be added using the Julia Pkg tool.
 

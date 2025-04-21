@@ -4,16 +4,17 @@ authors = ["simonbutson <butsons@oregonstate.edu> and contributors"]
 version = "1.0.0"
 
 [deps]
-Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [compat]
-julia = "1.6.7"
+JLD2 = "0.5.13"
 Plots = "1.40.11"
+julia = "1.6.7"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test"]
-

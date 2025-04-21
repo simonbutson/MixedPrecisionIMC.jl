@@ -45,6 +45,7 @@ ENDTIME = 1.0
 ##### Particles #####
 NINPUT = 500
 NMAX = 100000
+CELLMIN = 1
 
 ##### Temperature #####
 T_INIT = 1.0
@@ -59,11 +60,12 @@ PHYS_A = 0.01372016
 ALPHA = 1.0
 
 #### Transport Options ####
+PAIRWISE = FALSE
 RANDOMWALK = FALSE
 
 #### Scaling ####
-ENERGYSCALE = 100
-DISTANCESCALE = 1
+ENERGYSCALES = [1.0]
+DISTANCESCALE = 1.0
 
 ##### Outputs #####
 PLOTVARS = HEATMAP
