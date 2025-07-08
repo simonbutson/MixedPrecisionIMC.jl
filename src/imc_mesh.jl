@@ -65,11 +65,11 @@ using .Utilities
                 perimeter = precision.((0,0))
             elseif meshtype == "NONUNIFORM"
                 nodes = inputs["MESHNODES"]
-                centers = precision((nodes[1:end-1] + nodes[2:end]) / 2)
-                dx = precision(nodes[2:end] - nodes[1:end-1])
+                centers = precision.((nodes[1:end-1] + nodes[2:end]) / 2)
+                dx = precision.(nodes[2:end] - nodes[1:end-1])
                 dy = precision(1)
-                nodes = precision(nodes)
-                Ncells = tointeger(precision(length(dx)))
+                nodes = precision.(nodes)
+                Ncells = Utilities.tointeger(precision(length(dx)))
                 perimeter = precision.((0,0))
             end
             temp_saved = Vector{Vector{precision}}()

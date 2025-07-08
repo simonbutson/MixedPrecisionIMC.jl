@@ -9,7 +9,7 @@ include("imc_utilities.jl")
 using .Utilities
 using ..Constants
 
-    function update(mesh, simvars)
+    function update(inputs, mesh, simvars)
         """
         Function to update the mesh parameters
         Parameters:
@@ -23,8 +23,10 @@ using ..Constants
         mesh.beta = (4 * phys_a * mesh.temp.^3) ./ mesh.bee
 
         if simvars.geometry == "1D"            
-            #mesh.sigma_a[:,1] = mesh.sigma_a[:,2].*mesh.temp.^(mesh.sigma_a[:,3])
-            mesh.sigma_a[:,1] = mesh.sigma_a[:,2] ./ mesh.temp ./ mesh.temp ./ mesh.temp
+            mesh.sigma_a[:,1] = mesh.sigma_a[:,2].*mesh.temp.^(mesh.sigma_a[:,3])
+            if uppercase(inputs["NAME"]) == "MARSHAK WAVE"
+                mesh.sigma_a[:,1] = mesh.sigma_a[:,2] ./ mesh.temp ./ mesh.temp ./ mesh.temp
+            end
             mesh.sigma_s[:,1] = mesh.sigma_s[:,2].*mesh.temp.^(mesh.sigma_s[:,3])
             sigma_a = mesh.sigma_a[:,1]
 
@@ -36,6 +38,13 @@ using ..Constants
             mesh.sigma_a[:,:,1] = mesh.sigma_a[:,:,2].*mesh.temp.^(mesh.sigma_a[:,:,3])
             mesh.sigma_s[:,:,1] = mesh.sigma_s[:,:,2].*mesh.temp.^(mesh.sigma_s[:,:,3])
             sigma_a = mesh.sigma_a[:,:,1]
+
+            for i in 1:mesh.Ncells[1]
+                for j in 1:mesh.Ncells[2]
+                    mesh.fleck[i,j] = precision(1.0 / (1.0 + Utilities.sorter([mesh.distancescale, alpha, mesh.beta[i,j], phys_c, simvars.dt, sigma_a[i,j]], [1] , precision)[1]))
+                end
+            end
+            #mesh.fleck = precision.(1.0 ./ (1.0 .+ mesh.distancescale * alpha .* mesh.beta * phys_c * simvars.dt .* sigma_a))
         end
 
         #mesh.bee = precision.(4 * phys_a * mesh.temp.^3)

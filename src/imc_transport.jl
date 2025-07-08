@@ -58,6 +58,7 @@ function MC(mesh, simvars, particles)
         minenergy = precision(0.01 * startenergy) # Minimum particle energy cut-off
 
         while true
+            simvars.iterations += 1
             # Calculate distances to boundary, collision, and census -> take minimum
 
             # Boundary distance
@@ -175,8 +176,8 @@ function MC(mesh, simvars, particles)
             end
         end
     end
-    print(mesh.energydep[1,1], "\n")
-    #print("There were ", iterations, " total iterations this time-step. ")
+    #print(mesh.energydep[1,1], "\n")
+    print("There were ", simvars.iterations, " total iterations this time-step. ")
     #print("The number of particles that were absorbed is ", absorbed_particles, "\n")
 end
 
@@ -195,13 +196,24 @@ function MC_RW(mesh, simvars, rwvars, particles)
     dx = mesh.dx
     Ncells = mesh.Ncells
     precision = simvars.precision
+    pairwise = simvars.pairwise
     sigma_a = mesh.sigma_a[:,1]
     sigma_s = mesh.sigma_s[:,1]
     aVals = rwvars.aVals
     prVals = rwvars.prVals
     ptVals = rwvars.ptVals
 
-    mesh.energydep = zeros(precision, Ncells)
+    if pairwise == "TRUE"
+        energydep_vectors = Vector{Vector{precision}}()
+
+        for ii in 1:mesh.Ncells
+            for kk in 1:length(mesh.energyscales)
+                push!(energydep_vectors, [])
+            end
+        end   
+    end
+
+    mesh.energydep = zeros(precision, (Ncells, length(mesh.energyscales)))
     for particle in eachindex(particles)
     
         currentparticle = particles[particle, :] 
@@ -214,10 +226,13 @@ function MC_RW(mesh, simvars, rwvars, particles)
         freq = currentparticle[1][6]
         energy = currentparticle[1][7]
         startenergy = currentparticle[1][8]
+        energyscale = currentparticle[1][9]
+        energyscaleindex = findfirst(isequal(energyscale), mesh.energyscales)
 
-        minenergy = 0.01 * startenergy # Minimum particle energy cut-off
+        minenergy = precision(0.01 * startenergy) # Minimum particle energy cut-off
 
         while true
+            simvars.iterations += 1
             # Calculate distances to boundary, collision, and census -> take minimum
 
             # Boundary distance
@@ -242,11 +257,11 @@ function MC_RW(mesh, simvars, rwvars, particles)
 
             # Check if particle will undergo random walk and initiate if true
             if R0 > 1/mesh.sigma[cellindex] && dist_col < R0
-                u = rand()
+                u = rand(precision)
 
-                D = phys_c/(3*sigma_a[cellindex]*(1-mesh.fleck[cellindex]))
+                D = precision(phys_c/(3*sigma_a[cellindex]*(1-mesh.fleck[cellindex])))
 
-                a = D*simvars.dt/(R0*R0)
+                a = D*endsteptime/(R0*R0)
 
                 Pr = P_r(a, simvars)
                 Pt = 1-Pr
@@ -255,15 +270,24 @@ function MC_RW(mesh, simvars, rwvars, particles)
 
                     a_index = bisection(ptVals,u)
 
-                    t_p = aVals[a_index]*(R0*R0)/D
+                    t_p = precision(aVals[a_index]*(R0*R0)/D)
 
                     # Updated Absorption Method for Random Walk (not using small fleck factor approximation)
-                    newenergy = energy * exp(phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]*t_p/log(1-mesh.fleck[cellindex]))
+                    newenergy = energy * exp(t_p*phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]/log(1-mesh.fleck[cellindex]))
                     if newenergy <= startenergy
                         newenergy = 0.0
                     end
-                    # Deposit the particle's energy
-                    mesh.energydep[cellindex] += energy - newenergy
+
+                    if isnan(newenergy) == true || isnan(energy) == true
+                        print(energy, " ", newenergy, " ", mesh.fleck[cellindex], " ", sigma_a[cellindex], " ", dist, " ", t_p , " ", phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]*t_p/log(1-mesh.fleck[cellindex]),"\n")
+                    end
+
+                     # Deposit the particle's energy
+                    if pairwise == "TRUE"
+                        push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy - newenergy)
+                    else
+                        mesh.energydep[cellindex, energyscaleindex] += energy - newenergy
+                    end
 
                     if newenergy == 0.0
                     # Flag particle for later destruction
@@ -271,13 +295,13 @@ function MC_RW(mesh, simvars, rwvars, particles)
                         break
                     end
                     # Sample new position off radius of sphere
-                    omega = 2*pi*rand(precision)
-                    position += cos(omega) * R0
+                    omega = precision(2*pi*rand(precision))
+                    position += precision(cos(omega) * R0)
 
                     currenttime += t_p
                     energy = newenergy
 
-                    mu = cos(omega + rand(precision) * pi) # Sample new direction using cosine distribution about sphere normal
+                    mu = precision(cos(omega + rand(precision) * pi)) # Sample new direction using cosine distribution about sphere normal
                     continue
                 else
                     #Code for if the particle remains in the random walk sphere at census time
@@ -286,16 +310,20 @@ function MC_RW(mesh, simvars, rwvars, particles)
 
                     a_index = bisection(prVals, Pr0*u_prime)
 
-                    R1 = sqrt(D*dt/aVals[a_index])
+                    R1 = sqrt(D*endsteptime/aVals[a_index])
 
                     # Calculate the new energy and the energy deposited (temp storage)
-                    newenergy = energy * exp(phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]*dt/log(1-mesh.fleck[cellindex]))
+                    newenergy = energy * exp(phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]*endsteptime/log(1-mesh.fleck[cellindex]))
 
                     if newenergy <= startenergy
                         newenergy = 0.0
                     end
                     # Deposit the particle's energy
-                    mesh.energydep[cellindex] += energy - newenergy
+                    if pairwise == "TRUE"
+                        push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy - newenergy)
+                    else
+                        mesh.energydep[cellindex, energyscaleindex] += energy - newenergy
+                    end
 
                     if newenergy == 0.0
                         # Flag particle for later destruction
@@ -304,12 +332,12 @@ function MC_RW(mesh, simvars, rwvars, particles)
                     end
                     position += cos(2*pi*rand(precision)) * R1
                     mu = precision(1 - 2 * rand(precision))
-                    currenttime = 0
+                    currenttime = precision(0.0)
                     energy = newenergy
                     # Finished with this particle
                     # Update the particle's properties in the list
                     # Starting energy comes in here but doesn't change
-                    particles[particle][:] = [origin, currenttime, cellindex, position, mu, freq, energy, startenergy]
+                    particles[particle][:] = [origin, currenttime, cellindex, position, mu, freq, energy, startenergy, energyscale]
                     break     
                 end
             end
@@ -321,8 +349,12 @@ function MC_RW(mesh, simvars, rwvars, particles)
             end
 
             # Deposit the particle's energy
-            mesh.energydep[cellindex] += energy - newenergy
-
+            if pairwise == "TRUE"
+                push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy - newenergy)
+            else
+                mesh.energydep[cellindex, energyscaleindex] += energy - newenergy
+            end
+        
             # Advance position, time, and energy
             # If energy is zero or domain boundary crossed -> kill particle
             if newenergy == 0.0
@@ -371,7 +403,6 @@ function MC_RW(mesh, simvars, rwvars, particles)
                     end
                 end
             end
-         
 
             # If collision occured update frequency and direction -> return to cross-section calculation
             if dist == dist_col
@@ -387,7 +418,7 @@ function MC_RW(mesh, simvars, rwvars, particles)
                 # Finished with this particle
                 # Update the particle's properties in the list
                 # Starting energy doesn't change
-                currenttime = 0.0
+                currenttime = precision(0.0)
                 particles[particle][:] = [origin, currenttime, cellindex, position, mu, freq, energy, startenergy, energyscale]
                 #global n_census += 1
                 break
@@ -396,7 +427,15 @@ function MC_RW(mesh, simvars, rwvars, particles)
     # New particle history
     #print("Particle state at end of time-step ", particles[particle][:], "\n")
     end
-    #print("There were ", iterations, " total iterations this time-step. ")
+    if pairwise == "TRUE"
+        for ii in 1:mesh.Ncells
+            for kk in 1:length(mesh.energyscales)
+                mesh.energydep[ii,kk] = sum(energydep_vectors[(kk-1)*mesh.Ncells + ii])
+            end
+        end
+    end
+
+    print("There were ", simvars.iterations, " total iterations this time-step. ")
     #print("The number of particles that were absorbed is ", absorbed_particles, "\n")
 end
 
@@ -504,7 +543,14 @@ function MC2D(mesh, simvars, particles)
 
             # Deposit the particle's energy
             if pairwise == "TRUE"
-                push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], energy - newenergy)
+                if energy < 1e-6 && sigma_a[xindex,yindex] < 0.0
+                    push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], energy)  
+                    newenergy = precision(0.0)
+                    # print(energy, " ", newenergy, " ", energy-newenergy, "\n")
+                    # sleep(0.1)
+                else
+                    push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], energy - newenergy)    
+                end
             else
                 mesh.energydep[xindex,yindex, energyscaleindex] += energy - newenergy
             end

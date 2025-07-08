@@ -39,6 +39,7 @@ mutable struct SimVars
     dtmax
     t_end
     timesteps
+    iterations::Int
     n_input::Int
     n_max::Int
     cellmin
@@ -69,7 +70,7 @@ function main(args)
         input_file = args[1] # Use user provided input file
     end
 
-    #input_file = raw"src\inputs\CrookedPipe.txt"
+    #input_file = raw"src\inputs\InfiniteMedium.txt"
 
     print("Input file: ", input_file, "\n")
 
@@ -81,7 +82,6 @@ function main(args)
 
     print(inputs, "\n")
 
-    
     Random.seed!(parse(Int, inputs["SEED"]))
 
     precision = inputs["PRECISION"]
@@ -101,6 +101,7 @@ function main(args)
         dt = dt0
     end
 
+    iterations = Utilities.tointeger(parse(precision, "0"))
     n_input = Utilities.tointeger(parse(precision, inputs["NINPUT"]))
     n_max = Utilities.tointeger(parse(precision, inputs["NMAX"]))
     cellmin = parse(precision, inputs["CELLMIN"])
@@ -118,7 +119,7 @@ function main(args)
         RBC = uppercase(string(inputs["RIGHTBC"]))
         BC = (LBC, RBC)
 
-        simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, n_input, n_max, cellmin, pairwise, BC, precision, geometry)
+        simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, iterations, n_input, n_max, cellmin, pairwise, BC, precision, geometry)
 
         if uppercase(string(inputs["RANDOMWALK"])) == "TRUE"
             # Create lookup table from probabilities
@@ -131,7 +132,7 @@ function main(args)
 
         while simvars.t <= simvars.t_end
             print("Time: ", simvars.t, "\n")
-            Update.update(mesh, simvars)
+            Update.update(inputs, mesh, simvars)
             Sourcing.sourcing(mesh, simvars, particles)
             if uppercase(string(inputs["RANDOMWALK"])) == "TRUE"
                 Transport.MC_RW(mesh, simvars, rwvars, particles)
@@ -152,10 +153,10 @@ function main(args)
         BBC = uppercase(string(inputs["BOTTOMBC"]))
         BC = (LBC, RBC, TBC, BBC)
 
-        simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, n_input, n_max, cellmin, pairwise, BC, precision, geometry)
+        simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, iterations, n_input, n_max, cellmin, pairwise, BC, precision, geometry)
         while simvars.t <= simvars.t_end
             print("Time: ", simvars.t, "\n")
-            Update.update(mesh, simvars)
+            Update.update(inputs, mesh, simvars)
             Sourcing.sourcing(mesh, simvars, particles)
             Transport.MC2D(mesh, simvars, particles)
             Clean.clean(particles)
