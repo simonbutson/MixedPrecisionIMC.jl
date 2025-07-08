@@ -64,9 +64,9 @@ end
     MixedPrecisionIMC.Constants.set_constants(input_data)
     import MixedPrecisionIMC.Constants: phys_c, phys_a, alpha
 
-    simvars = MixedPrecisionIMC.SimVars(0.00, 0.01, 0.0, 0.0, 0.0, 1.0, 0.01, 500, 100000, 1, "FALSE", "REFLECTIVE", Float64, "2D")
+    simvars = MixedPrecisionIMC.SimVars(0.00, 0.01, 0.0, 0.0, 0.0, 1.0, 0.01, Int(0), 500, 100000, 1, "FALSE", "REFLECTIVE", Float64, "2D")
 
-    MixedPrecisionIMC.Update.update(mesh, simvars)
+    MixedPrecisionIMC.Update.update(input_data, mesh, simvars)
     
     @test !iszero(mesh.beta)  # Check that the value of beta is not zero
     @test !iszero(mesh.sigma_a[:,:,1])  # Check that the value of sigma_a is not zero
