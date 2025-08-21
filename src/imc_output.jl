@@ -47,7 +47,7 @@ function plotting(inputs, mesh, simvars)
         display(p)
     end
 
-    if simvars.t == simvars.t_end
+    if simvars.t == simvars.t_end 
         if inputs["SAVEVARS"] == "TRUE"
 
                         

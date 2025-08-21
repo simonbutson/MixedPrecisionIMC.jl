@@ -45,12 +45,12 @@ DT = 0.0005
 #DTMAX = 0.1
 ENDTIME = 1.0
 
-##### Particles #####
+##### PARTICLES #####
 NINPUT = 10000
 NMAX = 50000
 CELLMIN = 1
 
-##### Temperature #####
+##### TEMPERATURE #####
 T_INIT = 1.00
 # Left, Right Boundaries
 T_SURFACE_VALS = [0.0, 0.0]
@@ -61,15 +61,16 @@ PHYS_C = 299.70
 PHYS_A = 0.01372016
 ALPHA = 1.0
 
-#### Transport Options ####
+#### TRANSPORT OPTIONS ####
+LINEARIZED = FALSE
 RANDOMWALK = FALSE
 PAIRWISE = TRUE
 
-#### Scaling ####
+#### SCALING ####
 ENERGYSCALES = [1.0]
 DISTANCESCALE = 1
 
-##### Outputs #####
+##### OUTPUTS #####
 PLOTVARS = TEMPERATURE
 SAVEVARS = FALSE
 BENCHMARK = FALSE

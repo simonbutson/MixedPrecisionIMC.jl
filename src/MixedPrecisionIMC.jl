@@ -4,6 +4,7 @@
 module MixedPrecisionIMC
 
 using Random
+using JLD2
 #using Plots
 
 include("imc_input.jl")
@@ -93,6 +94,8 @@ function main(args)
         dt0 = precision(0.0)
         k = precision(0.0)
         dtmax = precision(0.0)
+        N = Utilities.tointeger(t_end / dt)
+        timestep_iters = Utilities.tointeger(parse(precision, "0"))
     elseif timestepping == "RAMP"
         dt0 = parse(precision,inputs["DT0"])
         k = parse(precision,inputs["K"])
@@ -130,7 +133,7 @@ function main(args)
             rwvars = RWVars(aVals, prVals, ptVals)
         end
 
-        while simvars.t <= simvars.t_end
+        while simvars.t <= simvars.t_end #&& timestep_iters < N
             print("Time: ", simvars.t, "\n")
             Update.update(inputs, mesh, simvars)
             Sourcing.sourcing(mesh, simvars, particles)
@@ -144,7 +147,12 @@ function main(args)
             EnergyCheck.energychecker(inputs, mesh, simvars, particles)
             Output.plotting(inputs, mesh, simvars)
             timestep(timestepping, simvars)
+            #timestep_iters += Utilities.tointeger(parse(precision, "1"))
+            #print("Timestep #: ", timestep_iters, " out of ", N, "\n")
         end
+        #filename = "..\\outputs\\" * inputs["NAME"] * "_" * string(inputs["PRECISION"]) * ".jld2"
+        #jldsave(filename; simvars.timesteps, mesh.centers, mesh.temp_saved, mesh.radenergy_saved, mesh.matenergy_saved)
+
     elseif geometry == "2D"
 
         LBC = uppercase(string(inputs["LEFTBC"]))
@@ -154,7 +162,7 @@ function main(args)
         BC = (LBC, RBC, TBC, BBC)
 
         simvars = SimVars(t, dt, dt0, k, dtmax, t_end, timesteps, iterations, n_input, n_max, cellmin, pairwise, BC, precision, geometry)
-        while simvars.t <= simvars.t_end
+        while simvars.t <= simvars.t_end #&& timestep_iters < N
             print("Time: ", simvars.t, "\n")
             Update.update(inputs, mesh, simvars)
             Sourcing.sourcing(mesh, simvars, particles)
@@ -164,6 +172,7 @@ function main(args)
             EnergyCheck.energychecker(inputs, mesh, simvars, particles)
             Output.plotting(inputs, mesh, simvars)
             timestep(timestepping, simvars)
+            #timestep_iters += Utilities.tointeger(parse(precision, "1"))
         end
     end
    
@@ -181,11 +190,12 @@ function timestep(timestepping, simvars)
     Returns:
     simvars.t: Float - Updated time
 """
+    
     if simvars.t == simvars.t_end
         simvars.t = simvars.t_end + simvars.dt
         return
     end
-
+    
     if timestepping == "CONSTANT"
         if simvars.t + simvars.dt > simvars.t_end
             simvars.dt = simvars.t_end - simvars.t

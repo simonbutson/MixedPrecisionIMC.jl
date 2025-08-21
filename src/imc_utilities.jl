@@ -49,7 +49,7 @@ function sorter(vals, scales, precision)
 
     print("Product not representable \n")
     print(vals, scales, "\n")
-    sleep(10)
+    sleep(1.0) # Pause to allow user to see the error
     return (precision(0.0), precision(0.0), 0) # Return a default value if no product is found
 end
 

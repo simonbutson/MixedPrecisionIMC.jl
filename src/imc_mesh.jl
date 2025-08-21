@@ -17,9 +17,10 @@ using .Utilities
     sigma_s::Array # Scattering opacity
     energydep # Deposited energy in a timestep
     emittedenergy # Emitted energy during sourcing in a timestep
-    totalenergy # Total energy emitted up to current time
-    totalenergydep # Total energy deposited up to current time
+    totalenergy # Total energy emitted in current timestep
+    totalenergydep # Total energy deposited in current
     lostenergy # Energy of particles that left the problem domain 
+    radenergyold # Radiation energy from previous timestep
     bee::Array # Heat Capacity
     radsource::Array # Radiation source term
     radenergydens::Array # Radiation energy density
@@ -155,16 +156,17 @@ using .Utilities
             emittedenergy = zeros(precision, (Ncells[1], Ncells[2], length(energyscales))) # Emitted energy during sourcing in a timestep
         end
         
-        totalenergy = precision(0.0)
-        totalenergydep = precision(0.0)
-        lostenergy = precision(0.0)
+        totalenergy = precision(0.0) # Total energy emitted in current timestep
+        totalenergydep = precision(0.0) # Total energy deposited in current timestep
+        lostenergy = precision(0.0) # Energy of particles that left the problem domain in current timestep
+        radenergyold = precision(0.0) # Radiation energy from previous timestep
 
         bee = region_joiner(geometry, inputs["BEE_REGS"], inputs["BEE_VALS"], nodes, Ncells, precision) # Heat Capacity
 
         radenergydens = zeros(precision, Ncells) # Radiation energy density
         matenergydens = zeros(precision, Ncells) # Material energy density
 
-        mesh = MeshStruct(temp, T_surface, fleck, beta, sigma, sigma_a, sigma_s, energydep, emittedenergy, totalenergy, totalenergydep, lostenergy, bee, radsource, radenergydens, 
+        mesh = MeshStruct(temp, T_surface, fleck, beta, sigma, sigma_a, sigma_s, energydep, emittedenergy, totalenergy, totalenergydep, lostenergy, radenergyold, bee, radsource, radenergydens, 
                 matenergydens, temp_saved, energyincrease_saved, radenergy_saved, matenergy_saved, energyscales, distancescale, centers, nodes, dx, dy, perimeter, Ncells)
 
         return mesh

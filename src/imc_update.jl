@@ -20,7 +20,12 @@ using ..Constants
         """
         precision = simvars.precision
         
-        mesh.beta = (4 * phys_a * mesh.temp.^3) ./ mesh.bee
+        if inputs["LINEARIZED"] == "TRUE"
+            mesh.bee .= 4 * phys_a * mesh.temp.^3
+            mesh.beta = ones(precision, mesh.Ncells)
+        else
+            mesh.beta = (4 * phys_a * mesh.temp.^3) ./ mesh.bee
+        end
 
         if simvars.geometry == "1D"            
             mesh.sigma_a[:,1] = mesh.sigma_a[:,2].*mesh.temp.^(mesh.sigma_a[:,3])
@@ -32,6 +37,9 @@ using ..Constants
 
             for i in 1:mesh.Ncells
                 mesh.fleck[i] = precision(1.0 / (1.0 + Utilities.sorter([mesh.distancescale, alpha, mesh.beta[i], phys_c, simvars.dt, sigma_a[i]], [1] , precision)[1]))
+                if mesh.fleck[i] == precision(1.0)
+                    print("Fleck factor is invalid at cell ", i, " with values: ", mesh.distancescale, " ", alpha, " ", mesh.beta[i], " ", phys_c, " ", simvars.dt, " ", sigma_a[i], " Temperature: ", mesh.temp[i], "\n")
+                end
             end
 
         elseif simvars.geometry == "2D"
@@ -49,7 +57,7 @@ using ..Constants
 
         #mesh.bee = precision.(4 * phys_a * mesh.temp.^3)
 
-        #mesh.beta = ones(precision, mesh.Ncells)
+       
 
         #print("sigma_a = ", sigma_a, "")
 

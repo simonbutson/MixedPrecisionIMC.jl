@@ -41,10 +41,10 @@ TIMESTEPPING = CONSTANT
 DT = 0.001
 ENDTIME = 5
 
-##### Particles #####
+##### PARTICLES #####
 NS = 1000
 
-##### Temperature #####
+##### TEMPERATURE #####
 T_INIT = 0.05
 # Bottom, Top, Left, Right Boundaries
 T_SURFACE_VALS = [(0.0),(0.0),(1.0),(0.0)]
@@ -55,12 +55,14 @@ PHYS_C = 299.70
 PHYS_A = 0.01372016
 ALPHA = 1.0
 
-#### Transport Options ####
+#### TRANSPORT OPTIONS ####
+LINEARIZED = FALSE
+PAIRWISE = TRUE
 RANDOMWALK = FALSE
 
-#### Scaling ####
+#### SCALING ####
 ENERGYSCALES = [1]
 DISTANCESCALE = 1
 
-##### Outputs #####
+##### OUTPUTS #####
 PLOTVARS = HEATMAP

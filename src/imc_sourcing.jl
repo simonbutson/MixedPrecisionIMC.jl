@@ -69,9 +69,10 @@ using Random
             (cell_emittedenergy, escale_emittedenergy[i], escaleindex) = Utilities.sorter([mesh.fleck[i], sigma_a[i], phys_a, phys_c, mesh.temp[i], mesh.temp[i], mesh.temp[i], mesh.temp[i], dt, distancescale], energyscales, precision)
             mesh.emittedenergy[i,escaleindex] = cell_emittedenergy
         end
-        #print("Body energy ", sum(e_body), "\n")
-        #print("Source energy ", sum(e_radsource), "\n")
-        #print("Emitted energy ", sum(mesh.emittedenergy), "\n")
+        #print("Body energy ", e_body, "\n")
+        #print("Surface source energy ", e_surface, "\n")
+        #print("Emitted energy density ", mesh.emittedenergy./escale_emittedenergy, " Total emitted energy density ", sum(mesh.emittedenergy./escale_emittedenergy), "\n")
+        print("Total intial time-step energy ", sum(mesh.emittedenergy./escale_emittedenergy) + sum(mesh.radenergydens), "\n")
 
     elseif simvars.geometry == "2D"
 
@@ -117,12 +118,10 @@ using Random
     #e_radsource = precision.(energyscale * mesh.radsource .* (mesh.dx .* mesh.dy') * dt)
     #print("Source energy ", sum(e_radsource), "\n")
 
-    e_total = sum(e_body./escale_body) + sum(e_radsource./escale_radsource) + e_surface   # Total Energy
+    mesh.totalenergy = sum(e_body./escale_body) + sum(e_radsource./escale_radsource) + e_surface   # Total Energy
 
     #mesh.emittedenergy .= precision.((mesh.fleck .* sigma_a * phys_a * phys_c * dt .* (mesh.temp.^4)) * distancescale * energyscale)
     #print("Emitted energy ", sum(mesh.emittedenergy), "\n")
-
-    mesh.totalenergy += e_total
 
     # Calculate the number of particles to be sourced
 
@@ -133,16 +132,16 @@ using Random
     n_source = n_input
     n_census = length(particles)
     if n_input + n_census > n_max
-        n_source = n_max - n_census - length(Ncells) - 1
+        n_source = max(cellmin, n_max - n_census - length(Ncells) - 1)
     end
 
     for cellindex in eachindex(e_body)
-        n_body[cellindex] = Utilities.tointeger(max(round((e_body[cellindex]/escale_body[cellindex])*n_source/e_total), cellmin))
+        n_body[cellindex] = Utilities.tointeger(max(round((e_body[cellindex]/escale_body[cellindex])*n_source/mesh.totalenergy), cellmin))
     end
 
     for cellindex in eachindex(e_radsource)
         if e_radsource[cellindex] > 0
-            n_radsource[cellindex] = Utilities.tointeger(max(round((e_radsource[cellindex]/escale_radsource[cellindex])*n_source/e_total), cellmin))
+            n_radsource[cellindex] = Utilities.tointeger(max(round((e_radsource[cellindex]/escale_radsource[cellindex])*n_source/mesh.totalenergy), cellmin))
         end
     end
 
@@ -150,11 +149,11 @@ using Random
     if simvars.geometry == "1D"
         n_surfleft = Utilities.tointeger(precision(0))
         if e_surfaceleft > 0
-            n_surfleft = Utilities.tointeger(round(precision, (e_surfaceleft/escale_surfaceleft) * n_source / e_total))
+            n_surfleft = Utilities.tointeger(round(precision, (e_surfaceleft/escale_surfaceleft) * n_source / mesh.totalenergy))
         end
         n_surfright = Utilities.tointeger(precision(0))
         if e_surfaceright > 0
-            n_surfright = Utilities.tointeger(round(precision, (e_surfaceright/escale_surfaceright) *n_source / e_total))            
+            n_surfright = Utilities.tointeger(round(precision, (e_surfaceright/escale_surfaceright) *n_source / mesh.totalenergy))
         end
 
         # Surface-source particles
@@ -190,14 +189,16 @@ using Random
         end
 
         # Body-emitted particles
+        particle_energysum = precision(0)
         for cellindex in eachindex(e_body)
             if n_body[cellindex] <= 0
                 continue
             end
             nrg = e_body[cellindex] / precision(n_body[cellindex])
             startnrg = nrg
-
+            #print("Particle energy ", nrg, "\n")
             for _ in 1:n_body[cellindex]
+                particle_energysum += nrg
                 origin = cellindex
                 xpos = mesh.dx[cellindex] * rand(precision) * distancescale
                 mu = precision(1 - 2*rand(precision))
@@ -209,6 +210,7 @@ using Random
                 frq = precision(1.0)
                 push!(particles, [origin, spawntime, cellindex, xpos, mu, frq, nrg, startnrg, escale_body[cellindex]])
             end
+            #print("Emitted particle energy: ", particle_energysum, "\n")
         end
 
         # Radiation-source particles
@@ -238,25 +240,25 @@ using Random
          n_surfbottom = zeros(precision, size(e_surfacebottom))
          for cellindex in eachindex(e_surfacebottom)
             if e_surfacebottom[cellindex] > 0
-                n_surfbottom[cellindex] = Utilities.tointeger(max(round((e_surfacebottom[cellindex]/escale_surfacebottom[cellindex])*n_source/e_total),cellmin))
+                n_surfbottom[cellindex] = Utilities.tointeger(max(round((e_surfacebottom[cellindex]/escale_surfacebottom[cellindex])*n_source/mesh.totalenergy),cellmin))
             end
         end
          n_surftop = zeros(precision, size(e_surfacetop))
          for cellindex in eachindex(e_surfacetop)
             if e_surfacetop[cellindex] > 0
-                n_surftop[cellindex] = Utilities.tointeger(max(round((e_surfacetop[cellindex]/escale_surfacetop[cellindex])*n_source/e_total),cellmin))
+                n_surftop[cellindex] = Utilities.tointeger(max(round((e_surfacetop[cellindex]/escale_surfacetop[cellindex])*n_source/mesh.totalenergy),cellmin))
             end
         end
          n_surfleft = zeros(precision, size(e_surfaceleft))
          for cellindex in eachindex(e_surfaceleft)
             if e_surfaceleft[cellindex] > 0
-                n_surfleft[cellindex] = Utilities.tointeger(max(round((e_surfaceleft[cellindex]/escale_surfaceleft[cellindex])*n_source/e_total),cellmin))
+                n_surfleft[cellindex] = Utilities.tointeger(max(round((e_surfaceleft[cellindex]/escale_surfaceleft[cellindex])*n_source/mesh.totalenergy),cellmin))
             end
         end
          n_surfright = zeros(precision, size(e_surfaceright))
          for cellindex in eachindex(e_surfaceright)
             if e_surfaceright[cellindex] > 0
-                n_surfright[cellindex] = Utilities.tointeger(max(round((e_surfaceright[cellindex]/escale_surfaceright[cellindex])*n_source/e_total),cellmin))
+                n_surfright[cellindex] = Utilities.tointeger(max(round((e_surfaceright[cellindex]/escale_surfaceright[cellindex])*n_source/mesh.totalenergy),cellmin))
             end
         end
          # Bottom Surface
@@ -328,7 +330,10 @@ using Random
             end
             nrg = e_body[xindex, yindex] / precision(n_body[xindex, yindex])
             startnrg = nrg
-
+            # if nrg <= floatmin(precision)/100
+            #     mesh.emittedenergy[xindex, yindex, :] .= precision(0.0)
+            #     continue
+            # end
             for _ in 1:n_body[xindex, yindex]
                 xpos = mesh.dx[xindex] * rand(precision) * distancescale
                 ypos = mesh.dy[yindex] * rand(precision) * distancescale

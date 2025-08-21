@@ -99,7 +99,8 @@ ENDTIME: Simulation endtime
 
 Particles \
 NINPUT: Number of particles to try to source in each step \
-NMAX: Maximum number of particles allowable in simulation
+NMAX: Maximum number of particles allowable in simulation \
+CELLMIN: Minimum number of particles to source in each cell  
 
 Temperature \
 Use same format as material region to find mesh body temperature distributions \
@@ -118,10 +119,12 @@ PHYS_A: Radiation constant \
 ALPHA: Discretization parameter - typically leave as 1
 
 Transport \
-RANDOMWALK: TRUE of FALSE - Use Randomwalk acceleration for optically thick media (1D Only currently)
+LINEARIZED: TRUE or FALSE - Use Linearized form of IMC equations as in Su Olson Benchmark \
+PAIRWISE: TRUE or FALSE - Use Pairwise Summation for tallied quantities like energy deposition and material/radiation energy density \
+RANDOMWALK: TRUE or FALSE - Use Randomwalk acceleration for optically thick media (1D Only currently)
 
 Scaling \
-ENERGYSCALE: Scale factor for energy \
+ENERGYSCALE: Scale factors for energy \
 DISTANCESCALE: Scale factor for distance
 
 Outputs \

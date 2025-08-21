@@ -42,12 +42,12 @@ TIMESTEPPING = CONSTANT
 DT = 0.01
 ENDTIME = 1.0
 
-##### Particles #####
+##### PARTICLES #####
 NINPUT = 500
 NMAX = 100000
 CELLMIN = 1
 
-##### Temperature #####
+##### TEMPERATURE #####
 T_INIT = 1.0
 
 # Bottom, Top, Left, Right Boundaries
@@ -59,15 +59,16 @@ PHYS_C = 299.70
 PHYS_A = 0.01372016
 ALPHA = 1.0
 
-#### Transport Options ####
+#### TRANSPORT OPTIONS ####
+LINEARIZED = FALSE
 PAIRWISE = FALSE
 RANDOMWALK = FALSE
 
-#### Scaling ####
+#### SCALING ####
 ENERGYSCALES = [1.0]
 DISTANCESCALE = 1.0
 
-##### Outputs #####
+##### OUTPUTS #####
 PLOTVARS = HEATMAP
 CLIMS = [0,1]
 BENCHMARK = FALSE

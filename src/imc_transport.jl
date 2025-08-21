@@ -31,12 +31,15 @@ function MC(mesh, simvars, particles)
 
     if pairwise == "TRUE"
         energydep_vectors = Vector{Vector{precision}}()
+        lostenergy_vectors = Vector{Vector{precision}}()
 
-        for ii in 1:mesh.Ncells
-            for kk in 1:length(mesh.energyscales)
+        for kk in 1:length(mesh.energyscales)
+                push!(lostenergy_vectors, [])
+            for ii in 1:mesh.Ncells
                 push!(energydep_vectors, [])
             end
-        end   
+        end
+
     end
 
     mesh.energydep = zeros(precision, (Ncells, length(mesh.energyscales)))
@@ -56,6 +59,15 @@ function MC(mesh, simvars, particles)
         energyscaleindex = findfirst(isequal(energyscale), mesh.energyscales)
 
         minenergy = precision(0.01 * startenergy) # Minimum particle energy cut-off
+
+
+        # if mesh.fleck[cellindex] == precision(1.0) # Reabsorb particle if born in a cell with a fleck factor of 1.0 
+        #     if pairwise == "TRUE"
+        #         push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], (energy/dx[cellindex]))
+        #     else
+        #         mesh.energydep[cellindex, energyscaleindex] += (energy/dx[cellindex])
+        #     end
+        # end
 
         while true
             simvars.iterations += 1
@@ -80,29 +92,35 @@ function MC(mesh, simvars, particles)
             dist = min(dist_b, dist_col, dist_cen)
 
             # Calculate new energy and deposit lost energy
-            newenergy = energy * (exp(-sigma_a[cellindex] * mesh.fleck[cellindex]*dist)) # Separate exponent to prevent overflow in argument from large opacities
-            #newenergy = energy * exp(-sigma_a * dist)
+            newenergy = energy * (exp(-sigma_a[cellindex] * mesh.fleck[cellindex] * dist)) # Separate exponent to prevent overflow in argument from large opacities
+
             if newenergy <= minenergy
-                newenergy = precision(0.0)
-            end
-
-            # Deposit the particle's energy
-            if pairwise == "TRUE"
-                push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy - newenergy)
-            else
-                mesh.energydep[cellindex, energyscaleindex] += energy - newenergy
-            end
-
-
-            # Advance position, time, and energy
-            # If energy is zero or domain boundary crossed -> kill particle
-            if newenergy == 0.0
+                if pairwise == "TRUE"
+                    push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy/dx[cellindex] )
+                else
+                    mesh.energydep[cellindex, energyscaleindex] += energy/dx[cellindex]
+                end
                 # Flag particle for later destruction
                 particles[particle][8] = -1.0
                 break
             end
 
-            # Otherwise, advance the position, time and energy
+            # Deposit the particle's energy
+            if pairwise == "TRUE"
+                push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], -(energy/dx[cellindex])*expm1(-mesh.fleck[cellindex] * sigma_a[cellindex] * dist))
+                #expval = -mesh.fleck[cellindex] * sigma_a[cellindex] * dist
+
+                #if abs(expval) > 1e-2
+                #push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy - newenergy)
+                #else
+                    #push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], (energy/dx[cellindex]) * (-expval - expval^2/2 -expval^3/6))
+                #     newenergy = energy + energy * (expval + expval^2/2)
+                #end
+            else
+                mesh.energydep[cellindex, energyscaleindex] += -(energy/dx[cellindex])*expm1(-mesh.fleck[cellindex] * sigma_a[cellindex] * dist)
+            end
+
+            # Advance position, time, and energy        
             position += mu * dist
             currenttime += (dist/distancescale) / phys_c 
             energy = newenergy
@@ -117,7 +135,11 @@ function MC(mesh, simvars, particles)
                             mu = -mu
                         elseif simvars.BC[2] == "VACUUM"
                             # Vacuum boundary
-                            mesh.lostenergy += energy/energyscale
+                            if pairwise == "TRUE"
+                                push!(lostenergy_vectors[energyscaleindex], energy)
+                            else
+                                mesh.lostenergy += energy/energyscale
+                            end
                             particles[particle][8] = -1.0
                             break
                         end
@@ -132,7 +154,11 @@ function MC(mesh, simvars, particles)
                             mu = -mu
                         elseif simvars.BC[1] == "VACUUM"
                             # Vacuum boundary
-                            mesh.lostenergy += energy/energyscale
+                            if pairwise == "TRUE"
+                                push!(lostenergy_vectors[energyscaleindex], energy)
+                            else
+                                mesh.lostenergy += energy/energyscale
+                            end
                             particles[particle][8] = -1.0
                             break
                         end
@@ -170,14 +196,16 @@ function MC(mesh, simvars, particles)
     #print("Particle state at end of time-step ", particles[particle][:], "\n")
     end
     if pairwise == "TRUE"
-        for ii in 1:mesh.Ncells
-            for kk in 1:length(mesh.energyscales)
+        for kk in 1:length(mesh.energyscales)
+            mesh.lostenergy += sum(lostenergy_vectors[kk])/ mesh.energyscales[kk]
+            for ii in 1:mesh.Ncells
                 mesh.energydep[ii,kk] = sum(energydep_vectors[(kk-1)*mesh.Ncells + ii])
             end
         end
     end
+
     #print(mesh.energydep[1,1], "\n")
-    print("There were ", simvars.iterations, " total iterations this time-step. ")
+    print("There were ", simvars.iterations, " total iterations this time-step. \n")
     #print("The number of particles that were absorbed is ", absorbed_particles, "\n")
 end
 
@@ -205,12 +233,14 @@ function MC_RW(mesh, simvars, rwvars, particles)
 
     if pairwise == "TRUE"
         energydep_vectors = Vector{Vector{precision}}()
+        lostenergy_vectors = Vector{Vector{precision}}()
 
-        for ii in 1:mesh.Ncells
-            for kk in 1:length(mesh.energyscales)
+         for kk in 1:length(mesh.energyscales)
+                push!(lostenergy_vectors, [])
+            for ii in 1:mesh.Ncells
                 push!(energydep_vectors, [])
             end
-        end   
+        end  
     end
 
     mesh.energydep = zeros(precision, (Ncells, length(mesh.energyscales)))
@@ -284,9 +314,9 @@ function MC_RW(mesh, simvars, rwvars, particles)
 
                      # Deposit the particle's energy
                     if pairwise == "TRUE"
-                        push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy - newenergy)
+                        push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], -(energy/dx[cellindex])*expm1(t_p*phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]/log(1-mesh.fleck[cellindex])))
                     else
-                        mesh.energydep[cellindex, energyscaleindex] += energy - newenergy
+                        mesh.energydep[cellindex, energyscaleindex] += -(energy/dx[cellindex])*expm1(t_p*phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]/log(1-mesh.fleck[cellindex]))
                     end
 
                     if newenergy == 0.0
@@ -320,9 +350,9 @@ function MC_RW(mesh, simvars, rwvars, particles)
                     end
                     # Deposit the particle's energy
                     if pairwise == "TRUE"
-                        push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], energy - newenergy)
+                        push!(energydep_vectors[(energyscaleindex-1)*mesh.Ncells + cellindex], -(energy/dx[cellindex])*expm1(phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]*endsteptime/log(1-mesh.fleck[cellindex])))
                     else
-                        mesh.energydep[cellindex, energyscaleindex] += energy - newenergy
+                        mesh.energydep[cellindex, energyscaleindex] += -(energy/dx[cellindex])*expm1(phys_c*(1-mesh.fleck[cellindex])*sigma_a[cellindex]*endsteptime/log(1-mesh.fleck[cellindex]))
                     end
 
                     if newenergy == 0.0
@@ -378,7 +408,11 @@ function MC_RW(mesh, simvars, rwvars, particles)
                             mu = -mu
                         elseif simvars.BC[2] == "VACUUM"
                             # Vacuum boundary
-                            mesh.lostenergy += energy
+                             if pairwise == "TRUE"
+                                push!(lostenergy_vectors[energyscaleindex], energy)
+                            else
+                                mesh.lostenergy += energy/energyscale
+                            end
                             particles[particle][8] = -1.0
                             break
                         end
@@ -393,7 +427,11 @@ function MC_RW(mesh, simvars, rwvars, particles)
                             mu = -mu
                         elseif simvars.BC[1] == "VACUUM"
                             # Vacuum boundary
-                            mesh.lostenergy += energy
+                             if pairwise == "TRUE"
+                                push!(lostenergy_vectors[energyscaleindex], energy)
+                            else
+                                mesh.lostenergy += energy/energyscale
+                            end
                             particles[particle][8] = -1.0
                             break
                         end
@@ -427,9 +465,10 @@ function MC_RW(mesh, simvars, rwvars, particles)
     # New particle history
     #print("Particle state at end of time-step ", particles[particle][:], "\n")
     end
-    if pairwise == "TRUE"
-        for ii in 1:mesh.Ncells
-            for kk in 1:length(mesh.energyscales)
+   if pairwise == "TRUE"
+        for kk in 1:length(mesh.energyscales)
+            mesh.lostenergy += sum(lostenergy_vectors[kk])/ mesh.energyscales[kk]
+            for ii in 1:mesh.Ncells
                 mesh.energydep[ii,kk] = sum(energydep_vectors[(kk-1)*mesh.Ncells + ii])
             end
         end
@@ -461,14 +500,16 @@ function MC2D(mesh, simvars, particles)
 
     if pairwise == "TRUE"
         energydep_vectors = Vector{Vector{precision}}()
+        lostenergy_vectors = Vector{Vector{precision}}()
 
-        for ii in 1:mesh.Ncells[1]
-            for jj in 1:mesh.Ncells[2]
-                for kk in 1:length(mesh.energyscales)
-                push!(energydep_vectors, [])
+        for kk in 1:length(mesh.energyscales)
+            push!(lostenergy_vectors, [])
+            for ii in 1:mesh.Ncells[1]
+                for jj in 1:mesh.Ncells[2]
+                    push!(energydep_vectors, [])
                 end
             end
-        end   
+        end
     end
 
     for particle in eachindex(particles)
@@ -537,22 +578,33 @@ function MC2D(mesh, simvars, particles)
 
             # Calculate new energy and deposit lost energy
             newenergy = energy * exp(-mesh.fleck[xindex,yindex] * sigma_a[xindex,yindex] * dist)
+
+            # if dist == dist_col && (mesh.dx[xindex] < 0.01 || mesh.dy[yindex] < 0.01) && sigma_a[xindex,yindex] < 0.5
+            #     newenergy = precision(0.0)
+            # end
+    
             if newenergy <= minenergy
-                newenergy = precision(0.0)
+                if pairwise == "TRUE"
+                    push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], (energy/mesh.dx[xindex])/mesh.dy[yindex])
+                else
+                    mesh.energydep[xindex,yindex, energyscaleindex] += (energy/mesh.dx[xindex])/mesh.dy[yindex]
+                end
+                # Flag particle for later destruction
+                particles[particle][8] = -1.0
+                break
             end
 
             # Deposit the particle's energy
             if pairwise == "TRUE"
-                if energy < 1e-6 && sigma_a[xindex,yindex] < 0.0
-                    push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], energy)  
-                    newenergy = precision(0.0)
-                    # print(energy, " ", newenergy, " ", energy-newenergy, "\n")
-                    # sleep(0.1)
-                else
-                    push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], energy - newenergy)    
-                end
+                push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], -(energy/mesh.dx[xindex])/mesh.dy[yindex] * expm1(-mesh.fleck[xindex,yindex] * sigma_a[xindex,yindex] * dist))
+                # if abs(expval) > 1e-2
+                #     push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], (energy/mesh.dx[xindex])/mesh.dy[yindex] - (newenergy/mesh.dx[xindex])/mesh.dy[yindex])
+                # else
+
+                #     push!(energydep_vectors[((xindex-1)*mesh.Ncells[2] + yindex) + (energyscaleindex-1)*mesh.Ncells[1]*mesh.Ncells[2]], (energy/mesh.dx[xindex])/mesh.dy[yindex] * (-expval - expval^2/2 - expval^3/6))
+                # end
             else
-                mesh.energydep[xindex,yindex, energyscaleindex] += energy - newenergy
+                mesh.energydep[xindex,yindex, energyscaleindex] += -(energy/mesh.dx[xindex])/mesh.dy[yindex] * expm1(-mesh.fleck[xindex,yindex] * sigma_a[xindex,yindex] * dist)
             end
 
             if isnan(newenergy) == true || isnan(energy) == true
@@ -560,15 +612,6 @@ function MC2D(mesh, simvars, particles)
             end
 
             # Advance position, time, and energy
-            # If energy is zero or domain boundary crossed -> kill particle
-            if iszero(newenergy) == true 
-                # Flag particle for later destruction
-                particles[particle][8] = -1.0
-                break
-            end
-
-
-            # Otherwise, advance the position, time and energy
             xposition += dist * xvec[1]
             yposition += dist * xvec[2]
             currenttime += (dist/distancescale) / phys_c    
@@ -584,7 +627,11 @@ function MC2D(mesh, simvars, particles)
                                 xreflected = xvec .- v .* (2(v'xvec))
                                 mu = atan(xreflected[2],xreflected[1])
                             elseif simvars.BC[2] == "VACUUM"
-                                mesh.lostenergy += energy/energyscale
+                                if pairwise == "TRUE"
+                                    push!(lostenergy_vectors[energyscaleindex], energy)
+                                else
+                                    mesh.lostenergy += energy/energyscale
+                                end
                                 particles[particle][8] = -1.0
                                 break
                             end
@@ -599,7 +646,11 @@ function MC2D(mesh, simvars, particles)
                                 xreflected = xvec .- v .* (2(v'xvec))
                                 mu = atan(xreflected[2],xreflected[1])
                             elseif simvars.BC[1] == "VACUUM"
-                                mesh.lostenergy += energy/energyscale
+                                if pairwise == "TRUE"
+                                    push!(lostenergy_vectors[energyscaleindex], energy)
+                                else
+                                    mesh.lostenergy += energy/energyscale
+                                end
                                 particles[particle][8] = -1.0
                                 break
                             end
@@ -616,7 +667,11 @@ function MC2D(mesh, simvars, particles)
                                 xreflected = xvec .- v .* (2(v'xvec))
                                 mu = atan(xreflected[2],xreflected[1])
                             elseif simvars.BC[3] == "VACUUM"
-                                mesh.lostenergy += energy/energyscale
+                                if pairwise == "TRUE"
+                                    push!(lostenergy_vectors[energyscaleindex], energy)
+                                else
+                                    mesh.lostenergy += energy/energyscale
+                                end
                                 particles[particle][8] = -1.0
                                 break
                             end    
@@ -631,7 +686,11 @@ function MC2D(mesh, simvars, particles)
                                 xreflected = xvec .- v .* (2(v'xvec))
                                 mu = atan(xreflected[2],xreflected[1])
                             elseif simvars.BC[4] == "VACUUM"
-                                mesh.lostenergy += energy/energyscale
+                                if pairwise == "TRUE"
+                                    push!(lostenergy_vectors[energyscaleindex], energy)
+                                else
+                                    mesh.lostenergy += energy/energyscale
+                                end
                                 particles[particle][8] = -1.0
                                 break
                             end
@@ -660,14 +719,16 @@ function MC2D(mesh, simvars, particles)
         end
     end
     if pairwise == "TRUE"
-        for ii in 1:mesh.Ncells[1]
-            for jj in 1:mesh.Ncells[2]
-                for kk in 1:length(mesh.energyscales)
+        for kk in 1:length(mesh.energyscales)
+            mesh.lostenergy += sum(lostenergy_vectors[kk]) / mesh.energyscales[kk]
+            for ii in 1:mesh.Ncells[1]
+                for jj in 1:mesh.Ncells[2]
                     mesh.energydep[ii,jj,kk] = sum(energydep_vectors[((ii-1)*mesh.Ncells[2] + jj) + (kk-1)*mesh.Ncells[1]*mesh.Ncells[2]])
                 end
             end
         end   
     end
+
 end
 
 function P_r(a, simvars)
