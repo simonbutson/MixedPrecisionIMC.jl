@@ -1,3 +1,3 @@
 var documenterSearchIndex = {"docs":
-[{"location":"#MixedPrecisionIMC","page":"Home","title":"MixedPrecisionIMC","text":"","category":"section"},{"location":"","page":"Home","title":"Home","text":"Documentation for MixedPrecisionIMC.","category":"page"},{"location":"","page":"Home","title":"Home","text":"","category":"page"}]
+[{"category":"section","location":"#MixedPrecisionIMC","page":"Home","text":"Documentation for MixedPrecisionIMC.\n\n","title":"MixedPrecisionIMC"}]
 }
